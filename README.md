@@ -23,16 +23,17 @@ never mid-session.
 
 ## Architecture (v1 sketch, will change)
 
-attacker traffic
-│
-▼
-[ eBPF/TC redirect ] ── reads ──▶ redirect map (src IP → honeypot)
-│ ▲
-▼ │ registrar writes here
-[ honeypot pool ] ◀── provisions ── [ orchestrator ]
-│ ▲
-▼ │ metrics
-[ log pipeline ] ─────────────────────────
+    attacker traffic
+          │
+          ▼
+    [ eBPF/TC redirect ]  ── reads ──▶ redirect map (src IP → honeypot)
+          │                                   ▲
+          ▼                                   │ registrar writes here
+    [ honeypot pool ]  ◀── provisions ── [ orchestrator ]
+          │                                   ▲
+          ▼                                   │ metrics
+    [ log pipeline ]  ─────────────────────────
+
 
 ## Status
 
