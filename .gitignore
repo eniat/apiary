@@ -1,0 +1,18 @@
+# build output
+/bin/
+*.bpf.o
+
+# python scratch
+__pycache__/
+*.pyc
+.venv/
+
+# captured data
+/data/
+*.pcap
+*.log
+
+# editor
+.vscode/
+.idea/
+.DS_Store
