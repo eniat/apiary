@@ -1,0 +1,39 @@
+# Apiary
+
+Dynamic honeypot infrastructure that scales the number of live honeypots
+to match attacker load, then steers malicious traffic onto them in the
+kernel data plane.
+
+## The problem
+
+Static honeypot deployments (T-Pot style) run a fixed fleet. Under low
+load you waste resources; under a spike you run out of coverage. The
+design tension, from Vrable et al.'s Potemkin farm (2005), is that
+**scalability, fidelity and containment pull against each other**. Every
+decision here trades one for another, and this repo is a record of which
+trades I made and why.
+
+## What "self-scaling" means here
+
+- **Signal:** unserved malicious flows and per-honeypot session load.
+- **A scale-up event:** promote a pre-warmed idle honeypot to live and
+register its interface with the redirect data plane.
+- **A scale-down event:** reap an idle honeypot after a cooldown, but
+never mid-session.
+
+## Architecture (v1 sketch, will change)
+
+attacker traffic
+│
+▼
+[ eBPF/TC redirect ] ── reads ──▶ redirect map (src IP → honeypot)
+│ ▲
+▼ │ registrar writes here
+[ honeypot pool ] ◀── provisions ── [ orchestrator ]
+│ ▲
+▼ │ metrics
+[ log pipeline ] ─────────────────────────
+
+## Status
+
+Early. See docs/dev-log.md for the running log.
