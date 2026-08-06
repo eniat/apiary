@@ -1,33 +1,29 @@
-# containment battery, 2026-08-06T19:50Z
+# containment battery, 2026-08-06T20:00Z
 
 ## attacker (10.10.10.20)
-Warning: Permanently added '10.10.10.20' (ED25519) to the list of known hosts.
 10.10.10.0/24 dev enp0s8 proto kernel scope link src 10.10.10.20 
 172.30.0.0/16 via 10.10.10.10 dev enp0s8 proto static 
 --- ping 10.10.10.10
 PING 10.10.10.10 (10.10.10.10) 56(84) bytes of data.
-64 bytes from 10.10.10.10: icmp_seq=1 ttl=64 time=2.38 ms
-64 bytes from 10.10.10.10: icmp_seq=2 ttl=64 time=2.66 ms
+64 bytes from 10.10.10.10: icmp_seq=1 ttl=64 time=2.18 ms
+64 bytes from 10.10.10.10: icmp_seq=2 ttl=64 time=2.64 ms
 
 --- 10.10.10.10 ping statistics ---
-2 packets transmitted, 2 received, 0% packet loss, time 1006ms
-rtt min/avg/max/mdev = 2.375/2.519/2.663/0.144 ms
+2 packets transmitted, 2 received, 0% packet loss, time 1056ms
+rtt min/avg/max/mdev = 2.184/2.412/2.641/0.228 ms
 --- ping 10.10.10.1
 PING 10.10.10.1 (10.10.10.1) 56(84) bytes of data.
 
 --- 10.10.10.1 ping statistics ---
-2 packets transmitted, 0 received, 100% packet loss, time 1448ms
+2 packets transmitted, 0 received, 100% packet loss, time 1061ms
 
 --- ping 8.8.8.8
-ping: connect: Network is unreachable
---- ping 1.1.1.1
-ping: connect: Network is unreachable
---- dns
+ping: --- ping 1.1.1.1
+connect: Network is unreachable
+ping: --- dns
+connect: Network is unreachable
 --- http
 curl: (6) Could not resolve host: example.com
 
 ## container on apiary-net
-Unable to find image 'curlimages/curl:latest' locally
-docker: Error response from daemon: failed to resolve reference "docker.io/curlimages/curl:latest": failed to do request: Head "https://registry-1.docker.io/v2/curlimages/curl/manifests/latest": dial tcp: lookup registry-1.docker.io on 127.0.0.53:53: server misbehaving
-
-Run 'docker run --help' for more information
+curl: (28) Resolving timed out after 5061 milliseconds
