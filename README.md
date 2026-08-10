@@ -34,7 +34,3 @@ never mid-session.
           ▼                                   │ metrics
     [ log pipeline ]  ─────────────────────────
 
-
-## Status
-
-Early. See docs/dev-log.md for the running log.
