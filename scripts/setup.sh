@@ -21,7 +21,7 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -qq
 
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
   build-essential pkg-config git curl ca-certificates jq \
-  iproute2 iputils-ping tcpdump net-tools \
+  iproute2 iputils-ping tcpdump net-tools iperf3 \
   python3 python3-venv \
   apparmor-utils shellcheck asciinema
 
@@ -76,10 +76,12 @@ if have go; then
 else
   log "go, current stable"
   GO_VER="$(curl -fsSL 'https://go.dev/dl/?mode=json' | jq -r '.[0].version')"
+  [[ -n "$GO_VER" && "$GO_VER" != "null" ]] || { echo "could not resolve go version"; exit 1; }
   GO_ARCH="$(dpkg --print-architecture)"
   GO_TAR="${GO_VER}.linux-${GO_ARCH}.tar.gz"
 
-  curl -fsSLO "https://go.dev/dl/${GO_TAR}"
+  # Download before removing the old install
+  curl -fsSLO "https://go.dev/dl/${GO_TAR}" || { echo "go download failed"; exit 1; }
   sudo rm -rf /usr/local/go
   sudo tar -C /usr/local -xzf "$GO_TAR"
   rm -f "$GO_TAR"
@@ -98,6 +100,7 @@ cat <<'NOTE'
       docker run --rm hello-world
       make check
 
-  this vm has NAT only. no port forwarding, no bridged adapter.
+  the lab segment is host-only with no gateway. the NAT adapter is for
+  fetching only and stays disconnected during experiments.
 
 NOTE
