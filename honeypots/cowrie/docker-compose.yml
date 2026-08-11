@@ -1,0 +1,17 @@
+services:
+  cowrie:
+    image: cowrie/cowrie:latest
+    container_name: ap-cowrie
+    restart: unless-stopped
+    networks:
+      - apiary-net
+    ports:
+      - "2222:2222"
+    volumes:
+      # logs land on the host so they survive the container
+      - ./data/log:/cowrie/cowrie-git/var/log/cowrie
+      - ./data/dl:/cowrie/cowrie-git/var/lib/cowrie/downloads
+
+networks:
+  apiary-net:
+    external: true
