@@ -11,9 +11,11 @@ services:
       # operator config, overrides the bundled defaults
       - ./etc/cowrie.cfg:/cowrie/cowrie-git/etc/cowrie.cfg:ro
       - ./etc/userdb.txt:/cowrie/cowrie-git/etc/userdb.txt:ro
+      # whole state dir, seeded from the image so tty and snapshots survive.
+      # host keys live here and cowrie rewrites them on start
+      - ./state:/cowrie/cowrie-git/var/lib/cowrie
       # logs land on the host so they survive the container
       - ./data/log:/cowrie/cowrie-git/var/log/cowrie
-      - ./data/dl:/cowrie/cowrie-git/var/lib/cowrie/downloads
 
 networks:
   apiary-net:

@@ -19,3 +19,6 @@ __pycache__/
 
 # captured data at any depth
 data/
+
+# honeypot host keys, generated locally
+ssh_host_*
