@@ -1,0 +1,5 @@
+root:x:!root
+root:x:!admin
+root:x:Passw0rd
+admin:x:admin123
+deploy:x:deploy2024

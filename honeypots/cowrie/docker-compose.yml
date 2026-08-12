@@ -8,6 +8,9 @@ services:
     ports:
       - "2222:2222"
     volumes:
+      # operator config, overrides the bundled defaults
+      - ./etc/cowrie.cfg:/cowrie/cowrie-git/etc/cowrie.cfg:ro
+      - ./etc/userdb.txt:/cowrie/cowrie-git/etc/userdb.txt:ro
       # logs land on the host so they survive the container
       - ./data/log:/cowrie/cowrie-git/var/log/cowrie
       - ./data/dl:/cowrie/cowrie-git/var/lib/cowrie/downloads
