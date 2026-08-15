@@ -1,0 +1,17 @@
+services:
+  dionaea:
+    image: dinotools/dionaea:latest
+    container_name: ap-dionaea
+    restart: unless-stopped
+    networks:
+      - apiary-net
+    ports:
+      # ftp.yaml is enabled but nothing binds 21, so no mapping for it
+      - "4450:445/tcp"
+    volumes:
+      - ./data/log:/opt/dionaea/var/log/dionaea
+      - ./data/lib:/opt/dionaea/var/lib/dionaea
+
+networks:
+  apiary-net:
+    external: true
