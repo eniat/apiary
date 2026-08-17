@@ -42,6 +42,7 @@ One shape over both is what lets a single query span them.
 - only these three hold attack data, the rest are static reference tables shipped with the image
 - connections is probe not session.open: a completed record, not a lifecycle event, and session.open would imply a close that never arrives
 - session is null: every connections row is its own root with a null parent, so correlation means grouping by src_ip over a window
+- instance comes from cowrie's sensor field, but dionaea records nothing identifying the honeypot, so the collector injects it
 
 ## notes
 
