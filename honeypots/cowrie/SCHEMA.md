@@ -35,3 +35,5 @@ Each vector was tested against the running honeypot.
 **ps output is malformed.** VSZ and RSS are in bytes rather than kilobytes, giving systemd a 180 GB virtual size, and TIME reads `0.48` instead of `MM:SS`.
 
 **Emulated wget resolves literal addresses.** `wget http://10.10.10.20/x` fails with a name resolution error for an address needing no resolution. Real wget skips DNS for a literal IPv4.
+
+**Survives a version scan.** `nmap -sV -p 2222` reports OpenSSH 9.2p1 Debian 2+deb12u3, matching the configured banner, with no reference to Cowrie. The default banner would not have.
