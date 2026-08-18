@@ -17,4 +17,6 @@ probe=$(sudo bpftool feature probe kernel 2>/dev/null)
 case "$probe" in *sched_cls*) ok "tc program type";; *) bad "tc program type, data plane unbuildable";; esac
 if sudo tc qdisc add dev lo clsact 2>/dev/null; then sudo tc qdisc del dev lo clsact 2>/dev/null; ok "clsact hook"; else bad "clsact hook, data plane unbuildable"; fi
 sudo aa-status >/dev/null 2>&1 && ok "apparmor" || bad "apparmor"
+avail=$(df --output=avail -BG / | tail -1 | tr -dc "0-9")
+[[ "$avail" -ge 20 ]] && ok "disk ${avail}G free" || bad "disk ${avail}G free, under 20G"
 exit $((fails > 0))
