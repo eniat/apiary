@@ -49,3 +49,5 @@ One shape over both is what lets a single query span them.
 - payload keeps the original verbatim so normalisation cannot lose what later matters
 - src_ip and session are high cardinality: event body, never an index label
 - Cowrie's log can contain undecodable lines, ingest counts and skips them rather than stopping
+- Cowrie rotates daily but never prunes, rotated logs dropped past a retention window
+- dionaea's sqlite never rotates, sized rather than trimmed
