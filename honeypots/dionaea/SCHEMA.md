@@ -9,7 +9,7 @@ Two outputs. `var/log/dionaea/dionaea.log` is unstructured C debug text, ~4200 l
 | connection | primary key |
 | connection_protocol | which emulated service handled it |
 | connection_timestamp | unix epoch |
-| connection_root, connection_parent | links related connections into one attack |
+| connection_root, connection_parent | intended to link related connections, null in practice here |
 | local_host, local_port | honeypot side |
 | remote_host, remote_port | attacker side |
 
@@ -26,6 +26,8 @@ Cowrie emits an ordered event stream keyed by session, read as a narrative of wh
 **The emulation logs its own failures.** nmap probes produce `SMB did not get enough data` and `not really SMB` at critical level.
 
 **Advertised services do not exist.** `ftp.yaml` is enabled but nothing binds port 21.
+
+**SMB1 only and everything is anonymously writable.** `smb-protocols` returns `NT LM 0.12` alone, `smb-os-discovery` reports Windows XP, and ADMIN$, C$ and IPC$ all allow anonymous READ/WRITE. No supported release presents that combination.
 
 ## constraints
 
