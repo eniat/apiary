@@ -21,7 +21,7 @@ register its interface with the redirect data plane.
 - **A scale-down event:** reap an idle honeypot after a cooldown, but
 never mid-session.
 
-## Architecture (v1 sketch, will change)
+## Architecture (intended)
 
     attacker traffic
           │
@@ -34,3 +34,8 @@ never mid-session.
           ▼                                   │ metrics
     [ log pipeline ]  ─────────────────────────
 
+## Where it is
+
+- Built: isolated lab with containment evidenced, two honeypots with documented telemetry and tested fingerprint vectors, one normalised event shape over both
+- Next: the kernel data plane
+- Topology in `docs/lab-setup.md`, boundary in `docs/decisions/0002-lab-boundary.md`, metrics in `docs/evaluation-plan.md`
