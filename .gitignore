@@ -22,3 +22,4 @@ data/
 
 # honeypot host keys, generated locally
 ssh_host_*
+/orchestrator/probe
