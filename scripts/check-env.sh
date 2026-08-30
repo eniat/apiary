@@ -9,10 +9,17 @@ echo "kernel: $(uname -r)"
 if command -v clang >/dev/null; then ok "$(clang --version | head -1)"; else bad "clang"; fi
 command -v docker >/dev/null && ok "docker" || bad "docker"
 command -v bpftool >/dev/null && ok "bpftool" || bad "bpftool"
+command -v llvm-strip >/dev/null && ok "llvm-strip" || bad "llvm-strip, bpf2go strips with it"
+if command -v go >/dev/null; then ok "$(go version | cut -d' ' -f3)"; else bad "go"; fi
 command -v jq >/dev/null && ok "jq" || bad "jq"
 docker info >/dev/null 2>&1 && ok "docker daemon reachable" || bad "docker daemon"
 mount | grep -q cgroup2 && ok "cgroup v2" || bad "cgroup v2"
 { sudo test -e /sys/kernel/debug/tracing/trace_pipe || sudo test -e /sys/kernel/tracing/trace_pipe; } && ok "trace_pipe" || bad "trace_pipe, mount debugfs"
+# one compile proves libbpf headers, the asm symlink and the bpf target together
+tmp=$(mktemp -d)
+printf '#include <linux/bpf.h>\n#include <bpf/bpf_helpers.h>\nchar _license[] SEC("license") = "GPL";\n' > "$tmp/probe.c"
+if clang -O2 -g -target bpf -c "$tmp/probe.c" -o "$tmp/probe.o" 2>/dev/null; then ok "bpf target compiles"; else bad "bpf target compile, check libbpf-dev and /usr/include/asm"; fi
+rm -rf "$tmp"
 probe=$(sudo bpftool feature probe kernel 2>/dev/null)
 case "$probe" in *sched_cls*) ok "tc program type";; *) bad "tc program type, data plane unbuildable";; esac
 if sudo tc qdisc add dev lo clsact 2>/dev/null; then sudo tc qdisc del dev lo clsact 2>/dev/null; ok "clsact hook"; else bad "clsact hook, data plane unbuildable"; fi
