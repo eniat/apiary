@@ -9,6 +9,7 @@ add() {
   sudo iptables -t "$table" -C "$@" 2>/dev/null || sudo iptables -t "$table" -I "$@"
 }
 
+add raw PREROUTING -s "$LAB_NET" -d "$HP_NET" -j ACCEPT
 add filter DOCKER-USER -s "$LAB_NET" -d "$HP_NET" -j ACCEPT
 
 echo "lab rules applied"
