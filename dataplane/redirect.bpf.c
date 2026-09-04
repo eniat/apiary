@@ -9,6 +9,20 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 
+struct target {
+	__u32 new_daddr;      // honeypot ip, network order
+	__u32 ifindex;        // host side veth
+	__u8  new_dmac[6];    // eth0 discards frames not addressed to it
+	__u8  _pad[2];        // explicit, C and Go must agree byte for byte
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, __u32);   // attacker source ip, network order
+	__type(value, struct target);
+	__uint(max_entries, 1024);
+} redirect_targets SEC(".maps");
+
 SEC("tc")
 int tc_redirect(struct __sk_buff *skb)
 {
