@@ -10,3 +10,12 @@ Defender only. installed by `scripts/setup.sh` checked by `make check`
 Compiling for bpf target fails on `asm/types.h` because ubuntu amd64 keeps arch headers under `/usr/include/x86_64-linux-gnu/asm`. setup.sh symlinks them to `/usr/include/asm`. gcc-multilib is the wrong fix.
 
 Kernel 7.0.0-28-generic so loader attaches with TCX. BTF is present so CO-RE works
+
+## redirect map bytes
+
+Key 4B, value 16B. Rejected at any other length.
+
+    key   0a 0a 0a 14
+    value ac 1e 00 03  07 00 00 00  56 4c 20 89 79 46  00 00
+
+Addresses network order, ifindex host order, MAC in order, then padding.
