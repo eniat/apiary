@@ -1,4 +1,4 @@
-.PHONY: check clean iface bpf attach detach
+.PHONY: check clean iface bpf attach detach test
 check:
 	@./scripts/check-env.sh
 clean:
@@ -11,3 +11,6 @@ attach: bpf
 	@sudo ./scripts/attach.sh
 detach:
 	@sudo ./scripts/detach.sh
+test:
+	@cd orchestrator && go test ./...
+	@cd dataplane && go test ./...
