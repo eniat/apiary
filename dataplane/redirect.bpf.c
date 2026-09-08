@@ -9,6 +9,9 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 
+#define IP_DST_OFF  (ETH_HLEN + __builtin_offsetof(struct iphdr, daddr))
+#define IP_CSUM_OFF (ETH_HLEN + __builtin_offsetof(struct iphdr, check))
+
 struct target {
 	__u32 new_daddr;      // honeypot ip, network order
 	__u32 ifindex;        // host side veth
@@ -49,8 +52,21 @@ int tc_redirect(struct __sk_buff *skb)
 	if ((void *)(tcp + 1) > data_end)
 		return TC_ACT_OK;
 
-	bpf_printk("saddr=%x dport=%d syn=%d",
-		   bpf_ntohl(ip->saddr), bpf_ntohs(tcp->dest), tcp->syn);
+	__u32 saddr = ip->saddr;
+	struct target *t = bpf_map_lookup_elem(&redirect_targets, &saddr);
+	if (!t)
+		return TC_ACT_OK;
+
+	// read everything out before mutating, store_bytes may reallocate
+	__u32 old_daddr = ip->daddr;
+	__u32 new_daddr = t->new_daddr;
+	if (old_daddr == new_daddr)
+		return TC_ACT_OK;
+
+	bpf_l3_csum_replace(skb, IP_CSUM_OFF, old_daddr, new_daddr, sizeof(new_daddr));
+	bpf_skb_store_bytes(skb, IP_DST_OFF, &new_daddr, sizeof(new_daddr), 0);
+
+	bpf_printk("daddr %x to %x", bpf_ntohl(old_daddr), bpf_ntohl(new_daddr));
 	return TC_ACT_OK;
 }
 
