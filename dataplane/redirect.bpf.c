@@ -11,6 +11,7 @@
 
 #define IP_DST_OFF  (ETH_HLEN + __builtin_offsetof(struct iphdr, daddr))
 #define IP_CSUM_OFF (ETH_HLEN + __builtin_offsetof(struct iphdr, check))
+#define ETH_DST_OFF (__builtin_offsetof(struct ethhdr, h_dest))
 
 struct target {
 	__u32 new_daddr;      // honeypot ip, network order
@@ -63,8 +64,17 @@ int tc_redirect(struct __sk_buff *skb)
 	if (old_daddr == new_daddr)
 		return TC_ACT_OK;
 
+	__u8 dmac[6];
+	__builtin_memcpy(dmac, t->new_dmac, 6);
+	__u32 tcp_csum_off = ETH_HLEN + ihl + __builtin_offsetof(struct tcphdr, check);
+
+	// checksums first, both need the old value still in the packet
 	bpf_l3_csum_replace(skb, IP_CSUM_OFF, old_daddr, new_daddr, sizeof(new_daddr));
+	bpf_l4_csum_replace(skb, tcp_csum_off, old_daddr, new_daddr,
+			    BPF_F_PSEUDO_HDR | sizeof(new_daddr));
+
 	bpf_skb_store_bytes(skb, IP_DST_OFF, &new_daddr, sizeof(new_daddr), 0);
+	bpf_skb_store_bytes(skb, ETH_DST_OFF, dmac, 6, 0);
 
 	bpf_printk("daddr %x to %x", bpf_ntohl(old_daddr), bpf_ntohl(new_daddr));
 	return TC_ACT_OK;
