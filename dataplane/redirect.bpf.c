@@ -61,6 +61,7 @@ int tc_redirect(struct __sk_buff *skb)
 	// read everything out before mutating, store_bytes may reallocate
 	__u32 old_daddr = ip->daddr;
 	__u32 new_daddr = t->new_daddr;
+	__u32 ifindex = t->ifindex;
 	if (old_daddr == new_daddr)
 		return TC_ACT_OK;
 
@@ -76,8 +77,11 @@ int tc_redirect(struct __sk_buff *skb)
 	bpf_skb_store_bytes(skb, IP_DST_OFF, &new_daddr, sizeof(new_daddr), 0);
 	bpf_skb_store_bytes(skb, ETH_DST_OFF, dmac, 6, 0);
 
-	bpf_printk("daddr %x to %x", bpf_ntohl(old_daddr), bpf_ntohl(new_daddr));
-	return TC_ACT_OK;
+	bpf_printk("daddr %x to %x ifindex %d", bpf_ntohl(old_daddr),
+		   bpf_ntohl(new_daddr), ifindex);
+
+	// flags 0 is egress of that interface, which delivers into the container
+	return bpf_redirect(ifindex, 0);
 }
 
 char _license[] SEC("license") = "GPL";
