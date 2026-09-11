@@ -9,7 +9,9 @@ Defender only. installed by `scripts/setup.sh` checked by `make check`
 
 Compiling for bpf target fails on `asm/types.h` because ubuntu amd64 keeps arch headers under `/usr/include/x86_64-linux-gnu/asm`. setup.sh symlinks them to `/usr/include/asm`. gcc-multilib is the wrong fix.
 
-Kernel 7.0.0-28-generic so loader attaches with TCX. BTF is present so CO-RE works
+Kernel 7.0.0-28-generic so the loader attaches with TCX and falls back to a clsact
+filter over a pinned program where TCX is unavailable. `APIARY_ATTACH=tc` forces
+the fallback. BTF is present so CO-RE works
 
 ## redirect map bytes
 
