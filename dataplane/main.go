@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
@@ -81,9 +82,26 @@ func main() {
 		log.Fatalf("attach: %v", err)
 	}
 	defer cleanup()
+	defer clearMap(objs.RedirectTargets)
 
 	log.Printf("attached to %s via %s, ctrl-c to detach", ifName, how)
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	<-c
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	log.Printf("caught %v, detaching", <-c)
+}
+
+func clearMap(m *ebpf.Map) {
+	var key uint32
+	var val redirectTarget
+	var keys []uint32
+	it := m.Iterate()
+	for it.Next(&key, &val) {
+		keys = append(keys, key)
+	}
+	for _, k := range keys {
+		if err := m.Delete(k); err != nil {
+			log.Printf("map delete %d: %v", k, err)
+		}
+	}
+	log.Printf("cleared %d map rows", len(keys))
 }
