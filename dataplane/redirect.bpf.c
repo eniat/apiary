@@ -27,9 +27,23 @@ struct {
 	__uint(max_entries, 1024);
 } redirect_targets SEC(".maps");
 
+struct stats {
+	__u64 ns;
+	__u64 pkts;
+};
+
+// per-cpu so the counters need no atomics
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, __u32);
+	__type(value, struct stats);
+	__uint(max_entries, 1);
+} redirect_stats SEC(".maps");
+
 SEC("tc")
 int tc_redirect(struct __sk_buff *skb)
 {
+	__u64 t0 = bpf_ktime_get_ns();
 	void *data = (void *)(long)skb->data;
 	void *data_end = (void *)(long)skb->data_end;
 
@@ -80,7 +94,14 @@ int tc_redirect(struct __sk_buff *skb)
 	bpf_printk("daddr %x to %x ifindex %d", bpf_ntohl(old_daddr),
 		   bpf_ntohl(new_daddr), ifindex);
 
-	// flags 0 is egress of that interface, which delivers into the container
+	__u32 zero = 0;
+	struct stats *st = bpf_map_lookup_elem(&redirect_stats, &zero);
+	if (st) {
+		st->ns += bpf_ktime_get_ns() - t0;
+		st->pkts += 1;
+	}
+
+	// flags 0 is egress of that interface which delivers into the container
 	return bpf_redirect(ifindex, 0);
 }
 

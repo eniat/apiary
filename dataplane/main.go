@@ -83,6 +83,7 @@ func main() {
 	}
 	defer cleanup()
 	defer clearMap(objs.RedirectTargets)
+	defer printStats(objs.RedirectStats)
 
 	log.Printf("attached to %s via %s, ctrl-c to detach", ifName, how)
 	c := make(chan os.Signal, 1)
@@ -104,4 +105,22 @@ func clearMap(m *ebpf.Map) {
 		}
 	}
 	log.Printf("cleared %d map rows", len(keys))
+}
+
+func printStats(m *ebpf.Map) {
+	var per []redirectStats
+	if err := m.Lookup(uint32(0), &per); err != nil {
+		log.Printf("stats: %v", err)
+		return
+	}
+	var ns, pkts uint64
+	for _, s := range per {
+		ns += s.Ns
+		pkts += s.Pkts
+	}
+	if pkts == 0 {
+		log.Print("no packets redirected")
+		return
+	}
+	log.Printf("redirected %d packets mean %d ns in program", pkts, ns/pkts)
 }

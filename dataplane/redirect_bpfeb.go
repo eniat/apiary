@@ -13,6 +13,12 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type redirectStats struct {
+	_    structs.HostLayout
+	Ns   uint64
+	Pkts uint64
+}
+
 type redirectTarget struct {
 	_        structs.HostLayout
 	NewDaddr uint32
@@ -25,6 +31,7 @@ type redirectTarget struct {
 //
 // Used for safe lookups in a Collection or CollectionSpec.
 const (
+	redirectMapRedirectStats   = "redirect_stats"
 	redirectMapRedirectTargets = "redirect_targets"
 	redirectProgTcRedirect     = "tc_redirect"
 )
@@ -78,6 +85,7 @@ type redirectProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type redirectMapSpecs struct {
+	RedirectStats   *ebpf.MapSpec `ebpf:"redirect_stats"`
 	RedirectTargets *ebpf.MapSpec `ebpf:"redirect_targets"`
 }
 
@@ -107,11 +115,13 @@ func (o *redirectObjects) Close() error {
 //
 // It can be passed to loadRedirectObjects or ebpf.CollectionSpec.LoadAndAssign.
 type redirectMaps struct {
+	RedirectStats   *ebpf.Map `ebpf:"redirect_stats"`
 	RedirectTargets *ebpf.Map `ebpf:"redirect_targets"`
 }
 
 func (m *redirectMaps) Close() error {
 	return _RedirectClose(
+		m.RedirectStats,
 		m.RedirectTargets,
 	)
 }
