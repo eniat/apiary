@@ -18,7 +18,7 @@ into a BPF map and it has to survive reboots rather than track DHCP.
 - Defender keeps a NAT adapter for image pulls and pushes, disconnected during
   containment checks, host-only otherwise
 - Attacker holds a static route to `172.30.0.0/16` via the defender for the
-  decoy subnet, inert until the data plane forwards it
+  decoy subnet, reachable only via the raw accept in lab-rules.sh
 - apiary-net is the Docker bridge, created with an explicit subnet so the range is reserved rather than allocated from Docker's default pool: `docker network create --subnet 172.30.0.0/16 apiary-net`
 
 Reach the defender on 10.10.10.10, the attacker on 10.10.10.20 or from the

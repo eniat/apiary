@@ -11,6 +11,7 @@ Attacker to honeypot process with the rules as they exist on the defender.
 
 ## the rules
 
+    raw PREROUTING: DROP all -- !br-966d540a64b4 -> 172.30.0.3
     DNAT tcp -- !br-966d540a64b4 tcp dpt:2222 to:172.30.0.3:2222
     MASQUERADE all -- !br-966d540a64b4 172.30.0.0/16
     DOCKER-USER: ACCEPT all -- 10.10.10.0/24 -> 172.30.0.0/16
@@ -19,6 +20,7 @@ Attacker to honeypot process with the rules as they exist on the defender.
 - counters confirm it. DNAT fires once per connection, DOCKER-USER sees every packet
 - MASQUERADE is container-initiated outbound only, replies here are un-NATed by conntrack
 - DOCKER-USER is the chain Docker will not overwrite, where the egress allowlist goes
+- docker drops off bridge traffic to container ip in raw before routing. One drop per container so lab accept has to sit above
 
 ## for the dataplane
 
