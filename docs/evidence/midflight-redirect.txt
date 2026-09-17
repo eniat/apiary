@@ -1,0 +1,75 @@
+# mid-flight redirect, 2026-09-17T14:48Z
+build kernel-redirect, kernel 7.0.0-28-generic, no return path
+
+## raw PREROUTING after ap-cowrie-b started
+Chain PREROUTING (policy ACCEPT)
+num  target     prot opt source               destination         
+1    ACCEPT     all  --  10.10.10.0/24        172.30.0.0/16       
+2    DROP       all  --  0.0.0.0/0            172.30.0.2          
+3    DROP       all  --  0.0.0.0/0            172.30.0.3          
+4    DROP       all  --  0.0.0.0/0            172.30.0.4          
+
+## raw PREROUTING after lab-rules reinsert
+Chain PREROUTING (policy ACCEPT)
+num  target     prot opt source               destination         
+1    ACCEPT     all  --  10.10.10.0/24        172.30.0.0/16       
+2    DROP       all  --  0.0.0.0/0            172.30.0.2          
+3    DROP       all  --  0.0.0.0/0            172.30.0.3          
+4    DROP       all  --  0.0.0.0/0            172.30.0.4          
+
+## before, no loader. attacker (10.10.10.20) to ap-cowrie-b 172.30.0.4
+banner SSH-2.0-OpenSSH_9.2p1 Debian-2+deb12u3
+sent probe
+
+### veth6f9926a, ap-cowrie-b
+tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+listening on veth6f9926a, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+14:47:34.787660 IP 10.10.10.20.46320 > 172.30.0.4.2222: Flags [S], seq 2358649430, win 64240, options [mss 1460,sackOK,TS val 2438638989 ecr 0,nop,wscale 8], length 0
+14:47:34.787819 IP 172.30.0.4.2222 > 10.10.10.20.46320: Flags [S.], seq 1011111633, ack 2358649431, win 65160, options [mss 1460,sackOK,TS val 3657646223 ecr 2438638989,nop,wscale 10], length 0
+14:47:34.789263 IP 10.10.10.20.46320 > 172.30.0.4.2222: Flags [.], ack 1, win 251, options [nop,nop,TS val 2438638991 ecr 3657646223], length 0
+14:47:34.794378 IP 172.30.0.4.2222 > 10.10.10.20.46320: Flags [P.], seq 1:41, ack 1, win 64, options [nop,nop,TS val 3657646229 ecr 2438638991], length 40
+14:47:34.799910 IP 10.10.10.20.46320 > 172.30.0.4.2222: Flags [.], ack 41, win 251, options [nop,nop,TS val 2438638998 ecr 3657646229], length 0
+14:47:44.886226 IP 10.10.10.20.46320 > 172.30.0.4.2222: Flags [P.], seq 1:16, ack 41, win 251, options [nop,nop,TS val 2438649088 ecr 3657646229], length 15
+14:47:44.886391 IP 172.30.0.4.2222 > 10.10.10.20.46320: Flags [.], ack 16, win 64, options [nop,nop,TS val 3657656321 ecr 2438649088], length 0
+14:47:44.893643 IP 172.30.0.4.2222 > 10.10.10.20.46320: Flags [P.], seq 41:641, ack 16, win 64, options [nop,nop,TS val 3657656328 ecr 2438649088], length 600
+14:47:44.895735 IP 10.10.10.20.46320 > 172.30.0.4.2222: Flags [.], ack 641, win 249, options [nop,nop,TS val 2438649097 ecr 3657656328], length 0
+14:47:49.959108 IP 10.10.10.20.46320 > 172.30.0.4.2222: Flags [F.], seq 16, ack 641, win 249, options [nop,nop,TS val 2438654161 ecr 3657656328], length 0
+14:47:49.960549 IP 172.30.0.4.2222 > 10.10.10.20.46320: Flags [F.], seq 641, ack 17, win 64, options [nop,nop,TS val 3657661395 ecr 2438654161], length 0
+14:47:49.966001 IP 10.10.10.20.46320 > 172.30.0.4.2222: Flags [.], ack 642, win 249, options [nop,nop,TS val 2438654165 ecr 3657661395], length 0
+
+12 packets captured
+12 packets received by filter
+0 packets dropped by kernel
+
+## after, row 10.10.10.20 to ap-cowrie 172.30.0.3 written once the connection is open. attacker to ap-cowrie-b 172.30.0.4
+banner SSH-2.0-OpenSSH_9.2p1 Debian-2+deb12u3
+sent probe
+
+### loader
+2026/09/17 14:47:58 mapped 10.10.10.20 to 172.30.0.3 ifindex 7
+2026/09/17 14:47:58 attached to br-966d540a64b4 via tcx, ctrl-c to detach
+2026/09/17 14:48:14 caught interrupt, detaching
+2026/09/17 14:48:14 redirected 7 packets mean 12078 ns in program
+2026/09/17 14:48:14 cleared 1 map rows
+
+### veth36f6770, ap-cowrie 172.30.0.3 listening on 2222
+tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+listening on veth36f6770, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+14:48:05.886822 IP 10.10.10.20.50360 > 172.30.0.3.2222: Flags [P.], seq 792730654:792730669, ack 136781784, win 251, options [nop,nop,TS val 3765664371 ecr 1061593332], length 15
+14:48:05.887084 IP 172.30.0.3.2222 > 10.10.10.20.50360: Flags [R], seq 136781784, win 0, length 0
+14:48:06.096369 IP 10.10.10.20.50360 > 172.30.0.3.2222: Flags [P.], seq 0:15, ack 1, win 251, options [nop,nop,TS val 3765664581 ecr 1061593332], length 15
+14:48:06.096517 IP 172.30.0.3.2222 > 10.10.10.20.50360: Flags [R], seq 136781784, win 0, length 0
+14:48:06.306441 IP 10.10.10.20.50360 > 172.30.0.3.2222: Flags [P.], seq 0:15, ack 1, win 251, options [nop,nop,TS val 3765664791 ecr 1061593332], length 15
+14:48:06.306586 IP 172.30.0.3.2222 > 10.10.10.20.50360: Flags [R], seq 136781784, win 0, length 0
+14:48:06.721263 IP 10.10.10.20.50360 > 172.30.0.3.2222: Flags [P.], seq 0:15, ack 1, win 251, options [nop,nop,TS val 3765665205 ecr 1061593332], length 15
+14:48:06.721420 IP 172.30.0.3.2222 > 10.10.10.20.50360: Flags [R], seq 136781784, win 0, length 0
+14:48:07.593973 IP 10.10.10.20.50360 > 172.30.0.3.2222: Flags [P.], seq 0:15, ack 1, win 251, options [nop,nop,TS val 3765666078 ecr 1061593332], length 15
+14:48:07.594090 IP 172.30.0.3.2222 > 10.10.10.20.50360: Flags [R], seq 136781784, win 0, length 0
+14:48:09.259938 IP 10.10.10.20.50360 > 172.30.0.3.2222: Flags [P.], seq 0:15, ack 1, win 251, options [nop,nop,TS val 3765667743 ecr 1061593332], length 15
+14:48:09.260051 IP 172.30.0.3.2222 > 10.10.10.20.50360: Flags [R], seq 136781784, win 0, length 0
+14:48:12.589776 IP 10.10.10.20.50360 > 172.30.0.3.2222: Flags [P.], seq 0:15, ack 1, win 251, options [nop,nop,TS val 3765671074 ecr 1061593332], length 15
+14:48:12.589927 IP 172.30.0.3.2222 > 10.10.10.20.50360: Flags [R], seq 136781784, win 0, length 0
+
+14 packets captured
+14 packets received by filter
+0 packets dropped by kernel
