@@ -28,6 +28,8 @@ func main() {
 	dst := flag.String("dst", "", "honeypot ip")
 	mac := flag.String("mac", "", "honeypot mac")
 	ifindex := flag.Uint("ifindex", 0, "host side veth ifindex")
+	dark := flag.String("dark", "172.30.99.0/24", "dark prefix")
+	lab := flag.String("lab", "enp0s8", "lab facing interface for the darknet hook")
 	flag.Parse()
 
 	ifName := os.Getenv("APIARY_IFACE")
@@ -48,6 +50,15 @@ func main() {
 		log.Fatalf("load: %v", err)
 	}
 	defer objs.Close()
+
+	dk, err := darkKey(*dark)
+	if err != nil {
+		log.Fatalf("dark: %v", err)
+	}
+	if err := objs.Darknet.Put(&dk, uint8(1)); err != nil {
+		log.Fatalf("darknet put: %v", err)
+	}
+	log.Printf("dark prefix %s", *dark)
 
 	if *src != "" {
 		key, err := ipKey(*src)
@@ -84,6 +95,13 @@ func main() {
 	defer cleanup()
 	defer clearMap(objs.RedirectTargets)
 	defer printStats(objs.RedirectStats)
+
+	darkCleanup, err := attachDark(objs.TcDarknet, *lab)
+	if err != nil {
+		log.Fatalf("darknet attach: %v", err)
+	}
+	defer darkCleanup()
+	log.Printf("darknet hook on %s ingress", *lab)
 
 	log.Printf("attached to %s via %s, ctrl-c to detach", ifName, how)
 	c := make(chan os.Signal, 1)
@@ -123,4 +141,19 @@ func printStats(m *ebpf.Map) {
 		return
 	}
 	log.Printf("redirected %d packets mean %d ns in program", pkts, ns/pkts)
+}
+
+func darkKey(cidr string) (redirectDarkKey, error) {
+	_, n, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return redirectDarkKey{}, err
+	}
+	ip := n.IP.To4()
+	if ip == nil {
+		return redirectDarkKey{}, fmt.Errorf("not an ipv4 prefix: %s", cidr)
+	}
+	ones, _ := n.Mask.Size()
+	k := redirectDarkKey{Prefixlen: uint32(ones)}
+	copy(k.Addr[:], ip)
+	return k, nil
 }

@@ -105,4 +105,43 @@ int tc_redirect(struct __sk_buff *skb)
 	return bpf_redirect(ifindex, 0);
 }
 
+struct dark_key {
+	__u32 prefixlen;
+	__u8  addr[4];
+};
+
+// lpm trie needs no_prealloc or the load fails
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct dark_key);
+	__type(value, __u8);
+	__uint(max_entries, 64);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} darknet SEC(".maps");
+
+SEC("tc")
+int tc_darknet(struct __sk_buff *skb)
+{
+	void *data = (void *)(long)skb->data;
+	void *data_end = (void *)(long)skb->data_end;
+
+	struct ethhdr *eth = data;
+	if ((void *)(eth + 1) > data_end)
+		return TC_ACT_OK;
+	if (eth->h_proto != bpf_htons(ETH_P_IP))
+		return TC_ACT_OK;
+
+	struct iphdr *ip = (void *)(eth + 1);
+	if ((void *)(ip + 1) > data_end)
+		return TC_ACT_OK;
+
+	struct dark_key key = { .prefixlen = 32 };
+	__builtin_memcpy(key.addr, &ip->daddr, 4);
+	if (!bpf_map_lookup_elem(&darknet, &key))
+		return TC_ACT_OK;
+
+	bpf_printk("dark %x from %x", bpf_ntohl(ip->daddr), bpf_ntohl(ip->saddr));
+	return TC_ACT_OK;
+}
+
 char _license[] SEC("license") = "GPL";

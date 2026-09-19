@@ -36,3 +36,25 @@ func TestIPKeyRejects(t *testing.T) {
 		}
 	}
 }
+
+// prefixlen is host order. the address is network order
+func TestDarkKey(t *testing.T) {
+	k, err := darkKey("172.30.99.0/24")
+	if err != nil {
+		t.Fatalf("darkKey: %v", err)
+	}
+	if k.Prefixlen != 24 {
+		t.Errorf("prefixlen = %d, want 24", k.Prefixlen)
+	}
+	if want := [4]uint8{0xac, 0x1e, 0x63, 0x00}; k.Addr != want {
+		t.Errorf("addr = % x, want % x", k.Addr, want)
+	}
+}
+
+func TestDarkKeyRejects(t *testing.T) {
+	for _, s := range []string{"", "172.30.99.0", "172.30.99.0/33", "::1/128"} {
+		if _, err := darkKey(s); err == nil {
+			t.Errorf("darkKey(%q) accepted", s)
+		}
+	}
+}

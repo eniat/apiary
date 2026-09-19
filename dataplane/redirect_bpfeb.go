@@ -13,6 +13,12 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type redirectDarkKey struct {
+	_         structs.HostLayout
+	Prefixlen uint32
+	Addr      [4]uint8
+}
+
 type redirectStats struct {
 	_    structs.HostLayout
 	Ns   uint64
@@ -31,8 +37,10 @@ type redirectTarget struct {
 //
 // Used for safe lookups in a Collection or CollectionSpec.
 const (
+	redirectMapDarknet         = "darknet"
 	redirectMapRedirectStats   = "redirect_stats"
 	redirectMapRedirectTargets = "redirect_targets"
+	redirectProgTcDarknet      = "tc_darknet"
 	redirectProgTcRedirect     = "tc_redirect"
 )
 
@@ -78,6 +86,7 @@ type redirectSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type redirectProgramSpecs struct {
+	TcDarknet  *ebpf.ProgramSpec `ebpf:"tc_darknet"`
 	TcRedirect *ebpf.ProgramSpec `ebpf:"tc_redirect"`
 }
 
@@ -85,6 +94,7 @@ type redirectProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type redirectMapSpecs struct {
+	Darknet         *ebpf.MapSpec `ebpf:"darknet"`
 	RedirectStats   *ebpf.MapSpec `ebpf:"redirect_stats"`
 	RedirectTargets *ebpf.MapSpec `ebpf:"redirect_targets"`
 }
@@ -115,12 +125,14 @@ func (o *redirectObjects) Close() error {
 //
 // It can be passed to loadRedirectObjects or ebpf.CollectionSpec.LoadAndAssign.
 type redirectMaps struct {
+	Darknet         *ebpf.Map `ebpf:"darknet"`
 	RedirectStats   *ebpf.Map `ebpf:"redirect_stats"`
 	RedirectTargets *ebpf.Map `ebpf:"redirect_targets"`
 }
 
 func (m *redirectMaps) Close() error {
 	return _RedirectClose(
+		m.Darknet,
 		m.RedirectStats,
 		m.RedirectTargets,
 	)
@@ -136,11 +148,13 @@ type redirectVariables struct {
 //
 // It can be passed to loadRedirectObjects or ebpf.CollectionSpec.LoadAndAssign.
 type redirectPrograms struct {
+	TcDarknet  *ebpf.Program `ebpf:"tc_darknet"`
 	TcRedirect *ebpf.Program `ebpf:"tc_redirect"`
 }
 
 func (p *redirectPrograms) Close() error {
 	return _RedirectClose(
+		p.TcDarknet,
 		p.TcRedirect,
 	)
 }
