@@ -19,6 +19,13 @@ type redirectDarkKey struct {
 	Addr      [4]uint8
 }
 
+type redirectFlag struct {
+	_      structs.HostLayout
+	Ns     uint64
+	Reason uint32
+	Pad    uint32
+}
+
 type redirectStats struct {
 	_    structs.HostLayout
 	Ns   uint64
@@ -38,6 +45,7 @@ type redirectTarget struct {
 // Used for safe lookups in a Collection or CollectionSpec.
 const (
 	redirectMapDarknet         = "darknet"
+	redirectMapFlagged         = "flagged"
 	redirectMapRedirectStats   = "redirect_stats"
 	redirectMapRedirectTargets = "redirect_targets"
 	redirectProgTcDarknet      = "tc_darknet"
@@ -95,6 +103,7 @@ type redirectProgramSpecs struct {
 // It can be passed ebpf.CollectionSpec.Assign.
 type redirectMapSpecs struct {
 	Darknet         *ebpf.MapSpec `ebpf:"darknet"`
+	Flagged         *ebpf.MapSpec `ebpf:"flagged"`
 	RedirectStats   *ebpf.MapSpec `ebpf:"redirect_stats"`
 	RedirectTargets *ebpf.MapSpec `ebpf:"redirect_targets"`
 }
@@ -126,6 +135,7 @@ func (o *redirectObjects) Close() error {
 // It can be passed to loadRedirectObjects or ebpf.CollectionSpec.LoadAndAssign.
 type redirectMaps struct {
 	Darknet         *ebpf.Map `ebpf:"darknet"`
+	Flagged         *ebpf.Map `ebpf:"flagged"`
 	RedirectStats   *ebpf.Map `ebpf:"redirect_stats"`
 	RedirectTargets *ebpf.Map `ebpf:"redirect_targets"`
 }
@@ -133,6 +143,7 @@ type redirectMaps struct {
 func (m *redirectMaps) Close() error {
 	return _RedirectClose(
 		m.Darknet,
+		m.Flagged,
 		m.RedirectStats,
 		m.RedirectTargets,
 	)

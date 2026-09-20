@@ -119,6 +119,22 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC);
 } darknet SEC(".maps");
 
+#define REASON_DARK 1
+
+struct flag {
+	__u64 ns;             // first seen
+	__u32 reason;         // 1 darknet
+	__u32 _pad;           // explicit. C and Go must agree byte for byte
+};
+
+// lru evicts the least recently used row so the table stays bounded
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, __u32);   // source ip, network order
+	__type(value, struct flag);
+	__uint(max_entries, 4096);
+} flagged SEC(".maps");
+
 SEC("tc")
 int tc_darknet(struct __sk_buff *skb)
 {
@@ -140,7 +156,13 @@ int tc_darknet(struct __sk_buff *skb)
 	if (!bpf_map_lookup_elem(&darknet, &key))
 		return TC_ACT_OK;
 
-	bpf_printk("dark %x from %x", bpf_ntohl(ip->daddr), bpf_ntohl(ip->saddr));
+	__u32 saddr = ip->saddr;
+	if (bpf_map_lookup_elem(&flagged, &saddr))
+		return TC_ACT_OK;
+
+	struct flag f = { .ns = bpf_ktime_get_ns(), .reason = REASON_DARK };
+	bpf_map_update_elem(&flagged, &saddr, &f, BPF_ANY);
+	bpf_printk("flag %x dark %x", bpf_ntohl(saddr), bpf_ntohl(ip->daddr));
 	return TC_ACT_OK;
 }
 

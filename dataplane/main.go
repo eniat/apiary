@@ -93,7 +93,8 @@ func main() {
 		log.Fatalf("attach: %v", err)
 	}
 	defer cleanup()
-	defer clearMap(objs.RedirectTargets)
+	defer clearMap(objs.RedirectTargets, new(redirectTarget), "redirect")
+	defer clearMap(objs.Flagged, new(redirectFlag), "flag")
 	defer printStats(objs.RedirectStats)
 
 	darkCleanup, err := attachDark(objs.TcDarknet, *lab)
@@ -109,21 +110,6 @@ func main() {
 	log.Printf("caught %v, detaching", <-c)
 }
 
-func clearMap(m *ebpf.Map) {
-	var key uint32
-	var val redirectTarget
-	var keys []uint32
-	it := m.Iterate()
-	for it.Next(&key, &val) {
-		keys = append(keys, key)
-	}
-	for _, k := range keys {
-		if err := m.Delete(k); err != nil {
-			log.Printf("map delete %d: %v", k, err)
-		}
-	}
-	log.Printf("cleared %d map rows", len(keys))
-}
 
 func printStats(m *ebpf.Map) {
 	var per []redirectStats
@@ -156,4 +142,19 @@ func darkKey(cidr string) (redirectDarkKey, error) {
 	k := redirectDarkKey{Prefixlen: uint32(ones)}
 	copy(k.Addr[:], ip)
 	return k, nil
+}
+
+func clearMap(m *ebpf.Map, val any, what string) {
+	var key uint32
+	var keys []uint32
+	it := m.Iterate()
+	for it.Next(&key, val) {
+		keys = append(keys, key)
+	}
+	for _, k := range keys {
+		if err := m.Delete(k); err != nil {
+			log.Printf("%s delete %d: %v", what, k, err)
+		}
+	}
+	log.Printf("cleared %d %s rows", len(keys), what)
 }
