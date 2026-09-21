@@ -58,3 +58,15 @@ func TestDarkKeyRejects(t *testing.T) {
 		}
 	}
 }
+
+func TestIPTextRoundTrip(t *testing.T) {
+	for _, s := range []string{"10.10.10.20", "172.30.99.10", "0.0.0.0"} {
+		k, err := ipKey(s)
+		if err != nil {
+			t.Fatalf("ipKey(%s): %v", s, err)
+		}
+		if got := ipText(k); got != s {
+			t.Errorf("ipText(ipKey(%s)) = %s", s, got)
+		}
+	}
+}

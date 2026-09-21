@@ -1,3 +1,3 @@
 package main
 
-//go:generate go tool bpf2go -cc clang redirect redirect.bpf.c
+//go:generate go tool bpf2go -cc clang -type event redirect redirect.bpf.c

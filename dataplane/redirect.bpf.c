@@ -135,6 +135,23 @@ struct {
 	__uint(max_entries, 4096);
 } flagged SEC(".maps");
 
+struct event {
+	__u64 ns;
+	__u32 saddr;          // flagged source, network order
+	__u32 daddr;          // address it touched, network order
+	__u32 reason;
+	__u32 _pad;           // explicit. C and Go must agree byte for byte
+};
+
+// size in bytes not rows. power of two page multiple
+struct {
+	__uint(type, BPF_MAP_TYPE_RINGBUF);
+	__uint(max_entries, 1 << 16);
+} events SEC(".maps");
+
+// puts struct event in btf so bpf2go emits it
+const struct event *unused_event __attribute__((unused));
+
 SEC("tc")
 int tc_darknet(struct __sk_buff *skb)
 {
@@ -162,7 +179,15 @@ int tc_darknet(struct __sk_buff *skb)
 
 	struct flag f = { .ns = bpf_ktime_get_ns(), .reason = REASON_DARK };
 	bpf_map_update_elem(&flagged, &saddr, &f, BPF_ANY);
-	bpf_printk("flag %x dark %x", bpf_ntohl(saddr), bpf_ntohl(ip->daddr));
+	struct event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+	if (!e)
+		return TC_ACT_OK;
+	e->ns = f.ns;
+	e->saddr = saddr;
+	e->daddr = ip->daddr;
+	e->reason = REASON_DARK;
+	e->_pad = 0;
+	bpf_ringbuf_submit(e, 0);
 	return TC_ACT_OK;
 }
 

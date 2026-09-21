@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"flag"
@@ -12,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
 )
 
@@ -104,12 +106,18 @@ func main() {
 	defer darkCleanup()
 	log.Printf("darknet hook on %s ingress", *lab)
 
+	rd, err := ringbuf.NewReader(objs.Events)
+	if err != nil {
+		log.Fatalf("ringbuf: %v", err)
+	}
+	defer rd.Close()
+	go consume(rd)
+
 	log.Printf("attached to %s via %s, ctrl-c to detach", ifName, how)
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	log.Printf("caught %v, detaching", <-c)
 }
-
 
 func printStats(m *ebpf.Map) {
 	var per []redirectStats
@@ -157,4 +165,29 @@ func clearMap(m *ebpf.Map, val any, what string) {
 		}
 	}
 	log.Printf("cleared %d %s rows", len(keys), what)
+}
+
+func ipText(v uint32) string {
+	var b [4]byte
+	binary.LittleEndian.PutUint32(b[:], v)
+	return net.IP(b[:]).String()
+}
+
+func consume(rd *ringbuf.Reader) {
+	for {
+		rec, err := rd.Read()
+		if err != nil {
+			if errors.Is(err, ringbuf.ErrClosed) {
+				return
+			}
+			log.Printf("ringbuf read: %v", err)
+			continue
+		}
+		var e redirectEvent
+		if err := binary.Read(bytes.NewReader(rec.RawSample), binary.LittleEndian, &e); err != nil {
+			log.Printf("ringbuf decode: %v", err)
+			continue
+		}
+		log.Printf("flagged %s touched %s reason %d ns %d", ipText(e.Saddr), ipText(e.Daddr), e.Reason, e.Ns)
+	}
 }

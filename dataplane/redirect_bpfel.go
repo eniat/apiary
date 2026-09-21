@@ -19,6 +19,15 @@ type redirectDarkKey struct {
 	Addr      [4]uint8
 }
 
+type redirectEvent struct {
+	_      structs.HostLayout
+	Ns     uint64
+	Saddr  uint32
+	Daddr  uint32
+	Reason uint32
+	Pad    uint32
+}
+
 type redirectFlag struct {
 	_      structs.HostLayout
 	Ns     uint64
@@ -45,11 +54,13 @@ type redirectTarget struct {
 // Used for safe lookups in a Collection or CollectionSpec.
 const (
 	redirectMapDarknet         = "darknet"
+	redirectMapEvents          = "events"
 	redirectMapFlagged         = "flagged"
 	redirectMapRedirectStats   = "redirect_stats"
 	redirectMapRedirectTargets = "redirect_targets"
 	redirectProgTcDarknet      = "tc_darknet"
 	redirectProgTcRedirect     = "tc_redirect"
+	redirectVarUnusedEvent     = "unused_event"
 )
 
 // loadRedirect returns the embedded CollectionSpec for redirect.
@@ -103,6 +114,7 @@ type redirectProgramSpecs struct {
 // It can be passed ebpf.CollectionSpec.Assign.
 type redirectMapSpecs struct {
 	Darknet         *ebpf.MapSpec `ebpf:"darknet"`
+	Events          *ebpf.MapSpec `ebpf:"events"`
 	Flagged         *ebpf.MapSpec `ebpf:"flagged"`
 	RedirectStats   *ebpf.MapSpec `ebpf:"redirect_stats"`
 	RedirectTargets *ebpf.MapSpec `ebpf:"redirect_targets"`
@@ -112,6 +124,7 @@ type redirectMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type redirectVariableSpecs struct {
+	UnusedEvent *ebpf.VariableSpec `ebpf:"unused_event"`
 }
 
 // redirectObjects contains all objects after they have been loaded into the kernel.
@@ -135,6 +148,7 @@ func (o *redirectObjects) Close() error {
 // It can be passed to loadRedirectObjects or ebpf.CollectionSpec.LoadAndAssign.
 type redirectMaps struct {
 	Darknet         *ebpf.Map `ebpf:"darknet"`
+	Events          *ebpf.Map `ebpf:"events"`
 	Flagged         *ebpf.Map `ebpf:"flagged"`
 	RedirectStats   *ebpf.Map `ebpf:"redirect_stats"`
 	RedirectTargets *ebpf.Map `ebpf:"redirect_targets"`
@@ -143,6 +157,7 @@ type redirectMaps struct {
 func (m *redirectMaps) Close() error {
 	return _RedirectClose(
 		m.Darknet,
+		m.Events,
 		m.Flagged,
 		m.RedirectStats,
 		m.RedirectTargets,
@@ -153,6 +168,7 @@ func (m *redirectMaps) Close() error {
 //
 // It can be passed to loadRedirectObjects or ebpf.CollectionSpec.LoadAndAssign.
 type redirectVariables struct {
+	UnusedEvent *ebpf.Variable `ebpf:"unused_event"`
 }
 
 // redirectPrograms contains all programs after they have been loaded into the kernel.
