@@ -35,6 +35,25 @@ type redirectFlag struct {
 	Pad    uint32
 }
 
+type redirectFlow struct {
+	_       structs.HostLayout
+	Addr    uint32
+	Ifindex uint32
+	Dmac    [6]uint8
+	Pad     [2]uint8
+	Seen    uint64
+}
+
+type redirectFlowKey struct {
+	_     structs.HostLayout
+	Saddr uint32
+	Daddr uint32
+	Sport uint16
+	Dport uint16
+	Proto uint8
+	Pad   [3]uint8
+}
+
 type redirectStats struct {
 	_    structs.HostLayout
 	Ns   uint64
@@ -56,6 +75,8 @@ const (
 	redirectMapDarknet         = "darknet"
 	redirectMapEvents          = "events"
 	redirectMapFlagged         = "flagged"
+	redirectMapFlowFwd         = "flow_fwd"
+	redirectMapFlowRev         = "flow_rev"
 	redirectMapRedirectStats   = "redirect_stats"
 	redirectMapRedirectTargets = "redirect_targets"
 	redirectProgTcDarknet      = "tc_darknet"
@@ -116,6 +137,8 @@ type redirectMapSpecs struct {
 	Darknet         *ebpf.MapSpec `ebpf:"darknet"`
 	Events          *ebpf.MapSpec `ebpf:"events"`
 	Flagged         *ebpf.MapSpec `ebpf:"flagged"`
+	FlowFwd         *ebpf.MapSpec `ebpf:"flow_fwd"`
+	FlowRev         *ebpf.MapSpec `ebpf:"flow_rev"`
 	RedirectStats   *ebpf.MapSpec `ebpf:"redirect_stats"`
 	RedirectTargets *ebpf.MapSpec `ebpf:"redirect_targets"`
 }
@@ -150,6 +173,8 @@ type redirectMaps struct {
 	Darknet         *ebpf.Map `ebpf:"darknet"`
 	Events          *ebpf.Map `ebpf:"events"`
 	Flagged         *ebpf.Map `ebpf:"flagged"`
+	FlowFwd         *ebpf.Map `ebpf:"flow_fwd"`
+	FlowRev         *ebpf.Map `ebpf:"flow_rev"`
 	RedirectStats   *ebpf.Map `ebpf:"redirect_stats"`
 	RedirectTargets *ebpf.Map `ebpf:"redirect_targets"`
 }
@@ -159,6 +184,8 @@ func (m *redirectMaps) Close() error {
 		m.Darknet,
 		m.Events,
 		m.Flagged,
+		m.FlowFwd,
+		m.FlowRev,
 		m.RedirectStats,
 		m.RedirectTargets,
 	)
