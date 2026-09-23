@@ -81,6 +81,7 @@ const (
 	redirectMapRedirectTargets = "redirect_targets"
 	redirectProgTcDarknet      = "tc_darknet"
 	redirectProgTcRedirect     = "tc_redirect"
+	redirectProgTcReturn       = "tc_return"
 	redirectVarUnusedEvent     = "unused_event"
 )
 
@@ -128,6 +129,7 @@ type redirectSpecs struct {
 type redirectProgramSpecs struct {
 	TcDarknet  *ebpf.ProgramSpec `ebpf:"tc_darknet"`
 	TcRedirect *ebpf.ProgramSpec `ebpf:"tc_redirect"`
+	TcReturn   *ebpf.ProgramSpec `ebpf:"tc_return"`
 }
 
 // redirectMapSpecs contains maps before they are loaded into the kernel.
@@ -204,12 +206,14 @@ type redirectVariables struct {
 type redirectPrograms struct {
 	TcDarknet  *ebpf.Program `ebpf:"tc_darknet"`
 	TcRedirect *ebpf.Program `ebpf:"tc_redirect"`
+	TcReturn   *ebpf.Program `ebpf:"tc_return"`
 }
 
 func (p *redirectPrograms) Close() error {
 	return _RedirectClose(
 		p.TcDarknet,
 		p.TcRedirect,
+		p.TcReturn,
 	)
 }
 

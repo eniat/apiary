@@ -10,6 +10,7 @@
 #include <bpf/bpf_endian.h>
 
 #define IP_DST_OFF  (ETH_HLEN + __builtin_offsetof(struct iphdr, daddr))
+#define IP_SRC_OFF  (ETH_HLEN + __builtin_offsetof(struct iphdr, saddr))
 #define IP_CSUM_OFF (ETH_HLEN + __builtin_offsetof(struct iphdr, check))
 #define ETH_DST_OFF (__builtin_offsetof(struct ethhdr, h_dest))
 
@@ -253,6 +254,66 @@ int tc_darknet(struct __sk_buff *skb)
 	e->reason = REASON_DARK;
 	e->_pad = 0;
 	bpf_ringbuf_submit(e, 0);
+	return TC_ACT_OK;
+}
+
+SEC("tc")
+int tc_return(struct __sk_buff *skb)
+{
+	void *data = (void *)(long)skb->data;
+	void *data_end = (void *)(long)skb->data_end;
+
+	struct ethhdr *eth = data;
+	if ((void *)(eth + 1) > data_end)
+		return TC_ACT_OK;
+	if (eth->h_proto != bpf_htons(ETH_P_IP))
+		return TC_ACT_OK;
+
+	struct iphdr *ip = (void *)(eth + 1);
+	if ((void *)(ip + 1) > data_end)
+		return TC_ACT_OK;
+	if (ip->protocol != IPPROTO_TCP)
+		return TC_ACT_OK;
+
+	__u32 ihl = ip->ihl * 4;
+	if (ihl < sizeof(struct iphdr) || ihl > 60)
+		return TC_ACT_OK;
+
+	struct tcphdr *tcp = (void *)ip + ihl;
+	if ((void *)(tcp + 1) > data_end)
+		return TC_ACT_OK;
+
+	struct flow_key fk = {
+		.saddr = ip->saddr,
+		.daddr = ip->daddr,
+		.sport = tcp->source,
+		.dport = tcp->dest,
+		.proto = IPPROTO_TCP,
+	};
+
+	struct flow *fl = bpf_map_lookup_elem(&flow_rev, &fk);
+	if (!fl)
+		return TC_ACT_OK;
+
+	__u64 t0 = bpf_ktime_get_ns();
+	if (t0 - fl->seen > FLOW_IDLE_NS) {
+		bpf_map_delete_elem(&flow_rev, &fk);
+		return TC_ACT_OK;
+	}
+	fl->seen = t0;
+
+	__u32 old_saddr = ip->saddr;
+	__u32 new_saddr = fl->addr;
+	__u32 tcp_csum_off = ETH_HLEN + ihl + __builtin_offsetof(struct tcphdr, check);
+
+	// the source sits in the tcp pseudo header so both checksums move
+	bpf_l3_csum_replace(skb, IP_CSUM_OFF, old_saddr, new_saddr, sizeof(new_saddr));
+	bpf_l4_csum_replace(skb, tcp_csum_off, old_saddr, new_saddr,
+			    BPF_F_PSEUDO_HDR | sizeof(new_saddr));
+
+	bpf_skb_store_bytes(skb, IP_SRC_OFF, &new_saddr, sizeof(new_saddr), 0);
+
+	// normal processing. the host routes it to the attacker
 	return TC_ACT_OK;
 }
 

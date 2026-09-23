@@ -14,12 +14,14 @@ import (
 
 const (
 	pinRedirect = "/sys/fs/bpf/apiary-tc-redirect"
+	pinReturn   = "/sys/fs/bpf/apiary-tc-return"
 	pinDarknet  = "/sys/fs/bpf/apiary-tc-darknet"
 )
 
-func attach(prog *ebpf.Program, iface *net.Interface, name string) (func(), string, error) {
+// forward on egress and return on ingress. netfilter then sees one tuple
+func attach(fwd, rev *ebpf.Program, iface *net.Interface, name string) (func(), string, error) {
 	if os.Getenv("APIARY_ATTACH") != "tc" {
-		c, err := attachTCX(prog, iface.Index, ebpf.AttachTCXIngress, ebpf.AttachTCXEgress)
+		c, err := attachTCXPair(fwd, rev, iface.Index)
 		if err == nil {
 			return c, "tcx", nil
 		}
@@ -27,7 +29,7 @@ func attach(prog *ebpf.Program, iface *net.Interface, name string) (func(), stri
 			return nil, "", err
 		}
 	}
-	c, err := attachTC(prog, name, pinRedirect, "ingress", "egress")
+	c, err := attachTCPair(fwd, rev, name)
 	if err != nil {
 		return nil, "", err
 	}
@@ -50,6 +52,32 @@ func attachDark(prog *ebpf.Program, name string) (func(), error) {
 		}
 	}
 	return attachTC(prog, name, pinDarknet, "ingress")
+}
+
+func attachTCXPair(fwd, rev *ebpf.Program, idx int) (func(), error) {
+	c1, err := attachTCX(fwd, idx, ebpf.AttachTCXEgress)
+	if err != nil {
+		return nil, err
+	}
+	c2, err := attachTCX(rev, idx, ebpf.AttachTCXIngress)
+	if err != nil {
+		c1()
+		return nil, err
+	}
+	return func() { c2(); c1() }, nil
+}
+
+func attachTCPair(fwd, rev *ebpf.Program, name string) (func(), error) {
+	c1, err := attachTC(fwd, name, pinRedirect, "egress")
+	if err != nil {
+		return nil, err
+	}
+	c2, err := attachTC(rev, name, pinReturn, "ingress")
+	if err != nil {
+		c1()
+		return nil, err
+	}
+	return func() { c2(); c1() }, nil
 }
 
 func attachTCX(prog *ebpf.Program, idx int, ats ...ebpf.AttachType) (func(), error) {

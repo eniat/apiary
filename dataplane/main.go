@@ -90,7 +90,7 @@ func main() {
 		log.Fatalf("interface %s: %v", ifName, err)
 	}
 
-	cleanup, how, err := attach(objs.TcRedirect, iface, ifName)
+	cleanup, how, err := attach(objs.TcRedirect, objs.TcReturn, iface, ifName)
 	if err != nil {
 		log.Fatalf("attach: %v", err)
 	}
