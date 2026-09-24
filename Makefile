@@ -1,4 +1,4 @@
-.PHONY: check clean iface bpf attach detach test test-redirect
+.PHONY: check clean iface bpf attach detach test test-redirect test-detect
 check:
 	@./scripts/check-env.sh
 clean:
@@ -17,3 +17,6 @@ test:
 test-redirect:
 	@cd dataplane && go build -o /tmp/apiary-loader .
 	@sudo ./scripts/test-redirect.sh
+test-detect:
+	@cd dataplane && go build -o /tmp/apiary-loader .
+	@sudo ./scripts/test-detect.sh

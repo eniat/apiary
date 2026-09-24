@@ -62,11 +62,8 @@ func main() {
 	}
 	log.Printf("dark prefix %s", *dark)
 
-	if *src != "" {
-		key, err := ipKey(*src)
-		if err != nil {
-			log.Fatalf("src: %v", err)
-		}
+	var tgt *redirectTarget
+	if *dst != "" {
 		daddr, err := ipKey(*dst)
 		if err != nil {
 			log.Fatalf("dst: %v", err)
@@ -75,15 +72,24 @@ func main() {
 		if err != nil {
 			log.Fatalf("mac: %v", err)
 		}
-		var t redirectTarget
-		t.NewDaddr = daddr
-		t.Ifindex = uint32(*ifindex)
-		copy(t.NewDmac[:], hw)
-		if err := objs.RedirectTargets.Put(key, &t); err != nil {
+		tgt = &redirectTarget{NewDaddr: daddr, Ifindex: uint32(*ifindex)}
+		copy(tgt.NewDmac[:], hw)
+	}
+
+	if *src != "" {
+		if tgt == nil {
+			log.Fatal("-src needs -dst and -mac and -ifindex")
+		}
+		key, err := ipKey(*src)
+		if err != nil {
+			log.Fatalf("src: %v", err)
+		}
+		if err := objs.RedirectTargets.Put(key, tgt); err != nil {
 			log.Fatalf("map put: %v", err)
 		}
 		log.Printf("mapped %s to %s ifindex %d", *src, *dst, *ifindex)
 	}
+
 
 	iface, err := net.InterfaceByName(ifName)
 	if err != nil {
@@ -111,7 +117,7 @@ func main() {
 		log.Fatalf("ringbuf: %v", err)
 	}
 	defer rd.Close()
-	go consume(rd)
+	go consume(rd, objs.RedirectTargets, tgt)
 
 	log.Printf("attached to %s via %s, ctrl-c to detach", ifName, how)
 	c := make(chan os.Signal, 1)
@@ -173,7 +179,7 @@ func ipText(v uint32) string {
 	return net.IP(b[:]).String()
 }
 
-func consume(rd *ringbuf.Reader) {
+func consume(rd *ringbuf.Reader, targets *ebpf.Map, tgt *redirectTarget) {
 	for {
 		rec, err := rd.Read()
 		if err != nil {
@@ -189,5 +195,13 @@ func consume(rd *ringbuf.Reader) {
 			continue
 		}
 		log.Printf("flagged %s touched %s reason %d ns %d", ipText(e.Saddr), ipText(e.Daddr), e.Reason, e.Ns)
+		if tgt == nil {
+			continue
+		}
+		if err := targets.Put(e.Saddr, tgt); err != nil {
+			log.Printf("register %s: %v", ipText(e.Saddr), err)
+			continue
+		}
+		log.Printf("registered %s to %s", ipText(e.Saddr), ipText(tgt.NewDaddr))
 	}
 }
