@@ -218,6 +218,44 @@ struct {
 // puts struct event in btf so bpf2go emits it
 const struct event *unused_event __attribute__((unused));
 
+#define SCAN_WINDOW_NS (10ULL * 1000000000ULL)
+
+struct scan {
+	__u64 first_ns;
+	__u64 ports;          // bit per dport % 64. popcount estimates distinct
+	__u32 syns;
+	__u32 _pad;
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_LRU_HASH);
+	__type(key, __u32);   // source ip, network order
+	__type(value, struct scan);
+	__uint(max_entries, 4096);
+} scanners SEC(".maps");
+
+static __always_inline void count_syn(__u32 saddr, __u16 dport)
+{
+	__u64 now = bpf_ktime_get_ns();
+	__u64 bit = 1ULL << (bpf_ntohs(dport) & 63);
+
+	struct scan *s = bpf_map_lookup_elem(&scanners, &saddr);
+	if (!s) {
+		struct scan ns = { .first_ns = now, .ports = bit, .syns = 1 };
+		bpf_map_update_elem(&scanners, &saddr, &ns, BPF_ANY);
+		return;
+	}
+	// window expired. start again from this packet
+	if (now - s->first_ns > SCAN_WINDOW_NS) {
+		s->first_ns = now;
+		s->ports = bit;
+		s->syns = 1;
+		return;
+	}
+	s->ports |= bit;
+	s->syns += 1;
+}
+
 SEC("tc")
 int tc_darknet(struct __sk_buff *skb)
 {
@@ -236,6 +274,15 @@ int tc_darknet(struct __sk_buff *skb)
 
 	struct dark_key key = { .prefixlen = 32 };
 	__builtin_memcpy(key.addr, &ip->daddr, 4);
+
+	if (ip->protocol == IPPROTO_TCP) {
+		__u32 ihl = ip->ihl * 4;
+		if (ihl >= sizeof(struct iphdr) && ihl <= 60) {
+			struct tcphdr *tcp = (void *)ip + ihl;
+			if ((void *)(tcp + 1) <= data_end && tcp->syn && !tcp->ack)
+				count_syn(ip->saddr, tcp->dest);
+		}
+	}
 	if (!bpf_map_lookup_elem(&darknet, &key))
 		return TC_ACT_OK;
 

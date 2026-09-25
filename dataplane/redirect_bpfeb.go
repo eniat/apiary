@@ -54,6 +54,14 @@ type redirectFlowKey struct {
 	Pad   [3]uint8
 }
 
+type redirectScan struct {
+	_       structs.HostLayout
+	FirstNs uint64
+	Ports   uint64
+	Syns    uint32
+	Pad     uint32
+}
+
 type redirectStats struct {
 	_    structs.HostLayout
 	Ns   uint64
@@ -79,6 +87,7 @@ const (
 	redirectMapFlowRev         = "flow_rev"
 	redirectMapRedirectStats   = "redirect_stats"
 	redirectMapRedirectTargets = "redirect_targets"
+	redirectMapScanners        = "scanners"
 	redirectProgTcDarknet      = "tc_darknet"
 	redirectProgTcRedirect     = "tc_redirect"
 	redirectProgTcReturn       = "tc_return"
@@ -143,6 +152,7 @@ type redirectMapSpecs struct {
 	FlowRev         *ebpf.MapSpec `ebpf:"flow_rev"`
 	RedirectStats   *ebpf.MapSpec `ebpf:"redirect_stats"`
 	RedirectTargets *ebpf.MapSpec `ebpf:"redirect_targets"`
+	Scanners        *ebpf.MapSpec `ebpf:"scanners"`
 }
 
 // redirectVariableSpecs contains global variables before they are loaded into the kernel.
@@ -179,6 +189,7 @@ type redirectMaps struct {
 	FlowRev         *ebpf.Map `ebpf:"flow_rev"`
 	RedirectStats   *ebpf.Map `ebpf:"redirect_stats"`
 	RedirectTargets *ebpf.Map `ebpf:"redirect_targets"`
+	Scanners        *ebpf.Map `ebpf:"scanners"`
 }
 
 func (m *redirectMaps) Close() error {
@@ -190,6 +201,7 @@ func (m *redirectMaps) Close() error {
 		m.FlowRev,
 		m.RedirectStats,
 		m.RedirectTargets,
+		m.Scanners,
 	)
 }
 
