@@ -218,13 +218,37 @@ struct {
 // puts struct event in btf so bpf2go emits it
 const struct event *unused_event __attribute__((unused));
 
+#define REASON_SCAN 2
+
+// one flag per source. later touches return early
+static __always_inline void flag_source(__u32 saddr, __u32 daddr, __u32 reason)
+{
+	if (bpf_map_lookup_elem(&flagged, &saddr))
+		return;
+
+	__u64 now = bpf_ktime_get_ns();
+	struct flag f = { .ns = now, .reason = reason };
+	bpf_map_update_elem(&flagged, &saddr, &f, BPF_ANY);
+
+	struct event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+	if (!e)
+		return;
+	e->ns = now;
+	e->saddr = saddr;
+	e->daddr = daddr;
+	e->reason = reason;
+	e->_pad = 0;
+	bpf_ringbuf_submit(e, 0);
+}
+
 #define SCAN_WINDOW_NS (10ULL * 1000000000ULL)
+#define SCAN_PORTS 20
 
 struct scan {
 	__u64 first_ns;
-	__u64 ports;          // bit per dport % 64. popcount estimates distinct
+	__u64 ports;          // bit per dport % 64. distinct saturates at 64
 	__u32 syns;
-	__u32 _pad;
+	__u32 distinct;
 };
 
 struct {
@@ -234,14 +258,14 @@ struct {
 	__uint(max_entries, 4096);
 } scanners SEC(".maps");
 
-static __always_inline void count_syn(__u32 saddr, __u16 dport)
+static __always_inline void count_syn(__u32 saddr, __u32 daddr, __u16 dport)
 {
 	__u64 now = bpf_ktime_get_ns();
 	__u64 bit = 1ULL << (bpf_ntohs(dport) & 63);
 
 	struct scan *s = bpf_map_lookup_elem(&scanners, &saddr);
 	if (!s) {
-		struct scan ns = { .first_ns = now, .ports = bit, .syns = 1 };
+		struct scan ns = { .first_ns = now, .ports = bit, .syns = 1, .distinct = 1 };
 		bpf_map_update_elem(&scanners, &saddr, &ns, BPF_ANY);
 		return;
 	}
@@ -250,10 +274,16 @@ static __always_inline void count_syn(__u32 saddr, __u16 dport)
 		s->first_ns = now;
 		s->ports = bit;
 		s->syns = 1;
+		s->distinct = 1;
 		return;
 	}
+	if (!(s->ports & bit))
+		s->distinct += 1;
 	s->ports |= bit;
 	s->syns += 1;
+
+	if (s->distinct >= SCAN_PORTS)
+		flag_source(saddr, daddr, REASON_SCAN);
 }
 
 SEC("tc")
@@ -280,27 +310,13 @@ int tc_darknet(struct __sk_buff *skb)
 		if (ihl >= sizeof(struct iphdr) && ihl <= 60) {
 			struct tcphdr *tcp = (void *)ip + ihl;
 			if ((void *)(tcp + 1) <= data_end && tcp->syn && !tcp->ack)
-				count_syn(ip->saddr, tcp->dest);
+				count_syn(ip->saddr, ip->daddr, tcp->dest);
 		}
 	}
 	if (!bpf_map_lookup_elem(&darknet, &key))
 		return TC_ACT_OK;
 
-	__u32 saddr = ip->saddr;
-	if (bpf_map_lookup_elem(&flagged, &saddr))
-		return TC_ACT_OK;
-
-	struct flag f = { .ns = bpf_ktime_get_ns(), .reason = REASON_DARK };
-	bpf_map_update_elem(&flagged, &saddr, &f, BPF_ANY);
-	struct event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
-	if (!e)
-		return TC_ACT_OK;
-	e->ns = f.ns;
-	e->saddr = saddr;
-	e->daddr = ip->daddr;
-	e->reason = REASON_DARK;
-	e->_pad = 0;
-	bpf_ringbuf_submit(e, 0);
+	flag_source(ip->saddr, ip->daddr, REASON_DARK);
 	return TC_ACT_OK;
 }
 

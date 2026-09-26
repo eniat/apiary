@@ -55,11 +55,11 @@ type redirectFlowKey struct {
 }
 
 type redirectScan struct {
-	_       structs.HostLayout
-	FirstNs uint64
-	Ports   uint64
-	Syns    uint32
-	Pad     uint32
+	_        structs.HostLayout
+	FirstNs  uint64
+	Ports    uint64
+	Syns     uint32
+	Distinct uint32
 }
 
 type redirectStats struct {
