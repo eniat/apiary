@@ -218,6 +218,10 @@ struct {
 // puts struct event in btf so bpf2go emits it
 const struct event *unused_event __attribute__((unused));
 
+// set from userspace before load. still constants to the verifier
+volatile const __u32 scan_ports = 10;
+volatile const __u64 scan_window_ns = 10000000000ULL;
+
 #define REASON_SCAN 2
 
 // one flag per source. later touches return early
@@ -241,8 +245,6 @@ static __always_inline void flag_source(__u32 saddr, __u32 daddr, __u32 reason)
 	bpf_ringbuf_submit(e, 0);
 }
 
-#define SCAN_WINDOW_NS (10ULL * 1000000000ULL)
-#define SCAN_PORTS 20
 
 struct scan {
 	__u64 first_ns;
@@ -270,7 +272,7 @@ static __always_inline void count_syn(__u32 saddr, __u32 daddr, __u16 dport)
 		return;
 	}
 	// window expired. start again from this packet
-	if (now - s->first_ns > SCAN_WINDOW_NS) {
+	if (now - s->first_ns > scan_window_ns) {
 		s->first_ns = now;
 		s->ports = bit;
 		s->syns = 1;
@@ -282,7 +284,7 @@ static __always_inline void count_syn(__u32 saddr, __u32 daddr, __u16 dport)
 	s->ports |= bit;
 	s->syns += 1;
 
-	if (s->distinct >= SCAN_PORTS)
+	if (s->distinct >= scan_ports)
 		flag_source(saddr, daddr, REASON_SCAN);
 }
 

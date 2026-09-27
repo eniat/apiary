@@ -32,6 +32,8 @@ func main() {
 	ifindex := flag.Uint("ifindex", 0, "host side veth ifindex")
 	dark := flag.String("dark", "172.30.99.0/24", "dark prefix")
 	lab := flag.String("lab", "enp0s8", "lab facing interface for the darknet hook")
+	ports := flag.Uint("scan-ports", 10, "distinct ports in the window that flag a source")
+	window := flag.Uint("scan-window", 10, "scan window seconds")
 	flag.Parse()
 
 	ifName := os.Getenv("APIARY_IFACE")
@@ -44,7 +46,17 @@ func main() {
 	}
 
 	var objs redirectObjects
-	if err := loadRedirectObjects(&objs, nil); err != nil {
+	spec, err := loadRedirect()
+	if err != nil {
+		log.Fatalf("spec: %v", err)
+	}
+	if err := spec.Variables["scan_ports"].Set(uint32(*ports)); err != nil {
+		log.Fatalf("scan_ports: %v", err)
+	}
+	if err := spec.Variables["scan_window_ns"].Set(uint64(*window) * 1000000000); err != nil {
+		log.Fatalf("scan_window_ns: %v", err)
+	}
+	if err := spec.LoadAndAssign(&objs, nil); err != nil {
 		var ve *ebpf.VerifierError
 		if errors.As(err, &ve) {
 			log.Fatalf("verifier:\n%+v", ve)

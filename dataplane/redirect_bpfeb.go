@@ -91,6 +91,8 @@ const (
 	redirectProgTcDarknet      = "tc_darknet"
 	redirectProgTcRedirect     = "tc_redirect"
 	redirectProgTcReturn       = "tc_return"
+	redirectVarScanPorts       = "scan_ports"
+	redirectVarScanWindowNs    = "scan_window_ns"
 	redirectVarUnusedEvent     = "unused_event"
 )
 
@@ -159,7 +161,9 @@ type redirectMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type redirectVariableSpecs struct {
-	UnusedEvent *ebpf.VariableSpec `ebpf:"unused_event"`
+	ScanPorts    *ebpf.VariableSpec `ebpf:"scan_ports"`
+	ScanWindowNs *ebpf.VariableSpec `ebpf:"scan_window_ns"`
+	UnusedEvent  *ebpf.VariableSpec `ebpf:"unused_event"`
 }
 
 // redirectObjects contains all objects after they have been loaded into the kernel.
@@ -209,7 +213,9 @@ func (m *redirectMaps) Close() error {
 //
 // It can be passed to loadRedirectObjects or ebpf.CollectionSpec.LoadAndAssign.
 type redirectVariables struct {
-	UnusedEvent *ebpf.Variable `ebpf:"unused_event"`
+	ScanPorts    *ebpf.Variable `ebpf:"scan_ports"`
+	ScanWindowNs *ebpf.Variable `ebpf:"scan_window_ns"`
+	UnusedEvent  *ebpf.Variable `ebpf:"unused_event"`
 }
 
 // redirectPrograms contains all programs after they have been loaded into the kernel.

@@ -25,3 +25,23 @@ upper bound on steady state.
 
 Latency is also a fingerprinting vector. An attacker timing responses could
 tell a redirected service from a direct one.
+
+## scan thresholds
+
+A source is flagged at N distinct destination ports inside T seconds. Swept 4 values of N against 3 of T with one run per cell. `evidence/scan-sweep.csv`
+
+| profile | traffic |
+|---|---|
+| benign | 8 service ports one every 2s |
+| fast scan | nmap 200 ports in about 5s |
+| slow scan | nmap 25 ports at 1s a port |
+
+- Fast scan flagged in all 12 cells
+- Slow scan flagged at 5/10 and 5/30 and 10/10 and 10/30 only
+- Benign flagged at 5/30 only
+
+**Chosen: 10 ports in 10s.** It misses benign and catches both scans. Benign peaks near 5 distinct ports per window so the threshold is double the rate it must ignore. 5/10 gives the same outcomes with no margin and 10/30 is slower to fire for nothing.
+
+Misses anything under 1 port per second. The 25 port slow scan ran past 30s which is why 20/30 never accumulated 20 ports in one window.
+
+One run per cell and one benign profile from one host. Outcomes are flagged or not rather than rates.
