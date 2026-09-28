@@ -45,3 +45,19 @@ A source is flagged at N distinct destination ports inside T seconds. Swept 4 va
 Misses anything under 1 port per second. The 25 port slow scan ran past 30s which is why 20/30 never accumulated 20 ports in one window.
 
 One run per cell and one benign profile from one host. Outcomes are flagged or not rather than rates.
+
+## detection to registration
+
+Time from the kernel flagging a source to the redirect row being written by the loader. Ring buffer wakeup plus decode plus map write.
+
+| samples | mean | min | max |
+|---|---|---|---|
+| 10 | 3.25 ms | 1.38 ms | 5.23 ms |
+
+Kernel timestamps `bpf_ktime_get_ns` on the flagging packet and the loader reads `CLOCK_MONOTONIC` after the map write. Same clock so no skew. Ten dark touches with the flagged row deleted between each.
+
+The map write is microseconds. Nearly all of this is waking the reader goroutine on a 2 vCPU VM, which is what the 4 ms spread across identical work shows. Treat it as a scheduling figure rather than a ring buffer one.
+
+Excludes the attacker's own delay before its next connection, which dominates any end to end figure and measures the attacker not the system.
+
+Adds to the fidelity side channel: a flagged source meets this delay once, on its first connection after being flagged.

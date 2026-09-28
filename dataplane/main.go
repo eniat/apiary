@@ -15,6 +15,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
+	"golang.org/x/sys/unix"
 )
 
 func ipKey(s string) (uint32, error) {
@@ -101,7 +102,6 @@ func main() {
 		}
 		log.Printf("mapped %s to %s ifindex %d", *src, *dst, *ifindex)
 	}
-
 
 	iface, err := net.InterfaceByName(ifName)
 	if err != nil {
@@ -214,6 +214,15 @@ func consume(rd *ringbuf.Reader, targets *ebpf.Map, tgt *redirectTarget) {
 			log.Printf("register %s: %v", ipText(e.Saddr), err)
 			continue
 		}
-		log.Printf("registered %s to %s", ipText(e.Saddr), ipText(tgt.NewDaddr))
+		log.Printf("registered %s to %s in %d ns", ipText(e.Saddr), ipText(tgt.NewDaddr), monotonicNs()-e.Ns)
 	}
+}
+
+// same clock as bpf_ktime_get_ns so event timestamps subtract cleanly
+func monotonicNs() uint64 {
+	var ts unix.Timespec
+	if err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts); err != nil {
+		return 0
+	}
+	return uint64(ts.Sec)*1000000000 + uint64(ts.Nsec)
 }
