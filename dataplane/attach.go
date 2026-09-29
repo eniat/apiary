@@ -12,11 +12,16 @@ import (
 	"github.com/cilium/ebpf/link"
 )
 
-const pinPath = "/sys/fs/bpf/apiary-tc-redirect"
+const (
+	pinRedirect = "/sys/fs/bpf/apiary-tc-redirect"
+	pinReturn   = "/sys/fs/bpf/apiary-tc-return"
+	pinDarknet  = "/sys/fs/bpf/apiary-tc-darknet"
+)
 
-func attach(prog *ebpf.Program, iface *net.Interface, name string) (func(), string, error) {
+// forward on egress and return on ingress. netfilter then sees one tuple
+func attach(fwd, rev *ebpf.Program, iface *net.Interface, name string) (func(), string, error) {
 	if os.Getenv("APIARY_ATTACH") != "tc" {
-		c, err := attachTCX(prog, iface.Index)
+		c, err := attachTCXPair(fwd, rev, iface.Index)
 		if err == nil {
 			return c, "tcx", nil
 		}
@@ -24,16 +29,60 @@ func attach(prog *ebpf.Program, iface *net.Interface, name string) (func(), stri
 			return nil, "", err
 		}
 	}
-	c, err := attachTC(prog, name)
+	c, err := attachTCPair(fwd, rev, name)
 	if err != nil {
 		return nil, "", err
 	}
 	return c, "tc", nil
 }
 
-func attachTCX(prog *ebpf.Program, idx int) (func(), error) {
+// ingress only. dark traffic never reaches the bridge
+func attachDark(prog *ebpf.Program, name string) (func(), error) {
+	iface, err := net.InterfaceByName(name)
+	if err != nil {
+		return nil, fmt.Errorf("interface %s: %w", name, err)
+	}
+	if os.Getenv("APIARY_ATTACH") != "tc" {
+		c, err := attachTCX(prog, iface.Index, ebpf.AttachTCXIngress)
+		if err == nil {
+			return c, nil
+		}
+		if !errors.Is(err, ebpf.ErrNotSupported) {
+			return nil, err
+		}
+	}
+	return attachTC(prog, name, pinDarknet, "ingress")
+}
+
+func attachTCXPair(fwd, rev *ebpf.Program, idx int) (func(), error) {
+	c1, err := attachTCX(fwd, idx, ebpf.AttachTCXEgress)
+	if err != nil {
+		return nil, err
+	}
+	c2, err := attachTCX(rev, idx, ebpf.AttachTCXIngress)
+	if err != nil {
+		c1()
+		return nil, err
+	}
+	return func() { c2(); c1() }, nil
+}
+
+func attachTCPair(fwd, rev *ebpf.Program, name string) (func(), error) {
+	c1, err := attachTC(fwd, name, pinRedirect, "egress")
+	if err != nil {
+		return nil, err
+	}
+	c2, err := attachTC(rev, name, pinReturn, "ingress")
+	if err != nil {
+		c1()
+		return nil, err
+	}
+	return func() { c2(); c1() }, nil
+}
+
+func attachTCX(prog *ebpf.Program, idx int, ats ...ebpf.AttachType) (func(), error) {
 	var open []io.Closer
-	for _, at := range []ebpf.AttachType{ebpf.AttachTCXIngress, ebpf.AttachTCXEgress} {
+	for _, at := range ats {
 		l, err := link.AttachTCX(link.TCXOptions{Interface: idx, Program: prog, Attach: at})
 		if err != nil {
 			for _, c := range open {
@@ -50,22 +99,22 @@ func attachTCX(prog *ebpf.Program, idx int) (func(), error) {
 	}, nil
 }
 
-// tc needs the program on bpffs, it cannot take a file descriptor
-func attachTC(prog *ebpf.Program, name string) (func(), error) {
-	os.Remove(pinPath)
-	if err := prog.Pin(pinPath); err != nil {
+// tc reads the program from bpffs. it cant take a file descriptor
+func attachTC(prog *ebpf.Program, name string, pin string, dirs ...string) (func(), error) {
+	os.Remove(pin)
+	if err := prog.Pin(pin); err != nil {
 		return nil, fmt.Errorf("pin: %w", err)
 	}
 	_ = exec.Command("tc", "qdisc", "add", "dev", name, "clsact").Run()
-	for _, dir := range []string{"ingress", "egress"} {
+	for _, dir := range dirs {
 		out, err := exec.Command("tc", "filter", "add", "dev", name, dir,
-			"bpf", "da", "pinned", pinPath).CombinedOutput()
+			"bpf", "da", "pinned", pin).CombinedOutput()
 		if err != nil {
 			return nil, fmt.Errorf("tc filter %s: %w: %s", dir, err, out)
 		}
 	}
 	return func() {
 		_ = exec.Command("tc", "qdisc", "del", "dev", name, "clsact").Run()
-		os.Remove(pinPath)
+		os.Remove(pin)
 	}, nil
 }

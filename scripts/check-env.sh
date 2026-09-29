@@ -13,6 +13,8 @@ command -v llvm-strip >/dev/null && ok "llvm-strip" || bad "llvm-strip, bpf2go s
 if command -v go >/dev/null; then ok "$(go version | cut -d' ' -f3)"; else bad "go"; fi
 command -v jq >/dev/null && ok "jq" || bad "jq"
 docker info >/dev/null 2>&1 && ok "docker daemon reachable" || bad "docker daemon"
+held=$(docker network inspect -f '{{range .Containers}}{{.IPv4Address}} {{end}}' apiary-net 2>/dev/null)
+[[ " $held" != *" 172.30.99."* ]] && ok "dark block unassigned" || bad "container in 172.30.99.0/24"
 mount | grep -q cgroup2 && ok "cgroup v2" || bad "cgroup v2"
 { sudo test -e /sys/kernel/debug/tracing/trace_pipe || sudo test -e /sys/kernel/tracing/trace_pipe; } && ok "trace_pipe" || bad "trace_pipe, mount debugfs"
 # one compile proves libbpf headers, the asm symlink and the bpf target together
