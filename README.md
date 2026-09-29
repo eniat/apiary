@@ -37,5 +37,7 @@ never mid-session.
 ## Where it is
 
 - Built: isolated lab with containment evidenced, two honeypots with documented telemetry and tested fingerprint vectors, one normalised event shape over both
-- Next: the kernel data plane
-- Topology in `docs/lab-setup.md`, boundary in `docs/decisions/0002-lab-boundary.md`, metrics in `docs/evaluation-plan.md`
+- Built: kernel redirect with a working return path, so a redirected attacker completes a real session against a honeypot
+- Built: darknet and scan detection in the kernel, thresholds chosen from a sweep, flagged sources registered from a ring buffer
+- Next: the orchestrator
+- Topology in `docs/lab-setup.md`, boundary in `docs/decisions/0002-lab-boundary.md`, metrics in `docs/evaluation-plan.md`, handoff in `docs/writeups/tcp-handoff.md`
