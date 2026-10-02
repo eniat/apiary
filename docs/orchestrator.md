@@ -16,3 +16,4 @@ One tick: metrics builds a `Snapshot`, policy returns an `Action`, provisioner o
 - Teardown is deregister then archive then destroy. Deregister first or rows point at a dead container
 - Policy tolerates an action not happening. The reaper refuses to destroy a honeypot holding a session
 - `policy` imports only the standard library. Anything it needs goes in `Snapshot`
+- Session counts come from the cowrie json log so every honeypot needs its log dir bind mounted. Silence past a window counts as closed or one lost close event pins a honeypot alive
