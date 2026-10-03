@@ -224,6 +224,28 @@ volatile const __u64 scan_window_ns = 10000000000ULL;
 
 #define REASON_SCAN 2
 
+// percpu so the counter needs no atomics
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, __u32);
+	__type(value, __u64);
+	__uint(max_entries, 1);
+} unserved SEC(".maps");
+
+// flagged with no redirect row means nowhere to land
+static __always_inline void count_unserved(__u32 saddr)
+{
+	if (!bpf_map_lookup_elem(&flagged, &saddr))
+		return;
+	if (bpf_map_lookup_elem(&redirect_targets, &saddr))
+		return;
+
+	__u32 zero = 0;
+	__u64 *n = bpf_map_lookup_elem(&unserved, &zero);
+	if (n)
+		*n += 1;
+}
+
 // one flag per source. later touches return early
 static __always_inline void flag_source(__u32 saddr, __u32 daddr, __u32 reason)
 {
@@ -311,8 +333,10 @@ int tc_darknet(struct __sk_buff *skb)
 		__u32 ihl = ip->ihl * 4;
 		if (ihl >= sizeof(struct iphdr) && ihl <= 60) {
 			struct tcphdr *tcp = (void *)ip + ihl;
-			if ((void *)(tcp + 1) <= data_end && tcp->syn && !tcp->ack)
+			if ((void *)(tcp + 1) <= data_end && tcp->syn && !tcp->ack) {
 				count_syn(ip->saddr, ip->daddr, tcp->dest);
+				count_unserved(ip->saddr);
+			}
 		}
 	}
 	if (!bpf_map_lookup_elem(&darknet, &key))

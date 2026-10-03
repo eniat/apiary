@@ -26,6 +26,9 @@ func ipKey(s string) (uint32, error) {
 	return binary.LittleEndian.Uint32(ip), nil
 }
 
+// the orchestrator opens this by path. it goes when the loader exits
+const pinUnserved = "/sys/fs/bpf/apiary-unserved"
+
 func main() {
 	src := flag.String("src", "", "attacker source ip, the map key")
 	dst := flag.String("dst", "", "honeypot ip")
@@ -65,6 +68,12 @@ func main() {
 		log.Fatalf("load: %v", err)
 	}
 	defer objs.Close()
+
+	os.Remove(pinUnserved)
+	if err := objs.Unserved.Pin(pinUnserved); err != nil {
+		log.Fatalf("pin unserved: %v", err)
+	}
+	defer objs.Unserved.Unpin()
 
 	dk, err := darkKey(*dark)
 	if err != nil {

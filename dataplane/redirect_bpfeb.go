@@ -88,6 +88,7 @@ const (
 	redirectMapRedirectStats   = "redirect_stats"
 	redirectMapRedirectTargets = "redirect_targets"
 	redirectMapScanners        = "scanners"
+	redirectMapUnserved        = "unserved"
 	redirectProgTcDarknet      = "tc_darknet"
 	redirectProgTcRedirect     = "tc_redirect"
 	redirectProgTcReturn       = "tc_return"
@@ -155,6 +156,7 @@ type redirectMapSpecs struct {
 	RedirectStats   *ebpf.MapSpec `ebpf:"redirect_stats"`
 	RedirectTargets *ebpf.MapSpec `ebpf:"redirect_targets"`
 	Scanners        *ebpf.MapSpec `ebpf:"scanners"`
+	Unserved        *ebpf.MapSpec `ebpf:"unserved"`
 }
 
 // redirectVariableSpecs contains global variables before they are loaded into the kernel.
@@ -194,6 +196,7 @@ type redirectMaps struct {
 	RedirectStats   *ebpf.Map `ebpf:"redirect_stats"`
 	RedirectTargets *ebpf.Map `ebpf:"redirect_targets"`
 	Scanners        *ebpf.Map `ebpf:"scanners"`
+	Unserved        *ebpf.Map `ebpf:"unserved"`
 }
 
 func (m *redirectMaps) Close() error {
@@ -206,6 +209,7 @@ func (m *redirectMaps) Close() error {
 		m.RedirectStats,
 		m.RedirectTargets,
 		m.Scanners,
+		m.Unserved,
 	)
 }
 
