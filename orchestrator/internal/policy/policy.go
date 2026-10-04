@@ -18,6 +18,8 @@ type Snapshot struct {
 	Warm         int
 	Sessions     int
 	Unserved     int
+	CPUPct       float64
+	MemBytes     uint64
 	LastAction   time.Time
 	LastDuration time.Duration
 }
