@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// where cowrie writes its json log inside the image
+const CowrieLogDir = "/cowrie/cowrie-git/var/log/cowrie"
+
 type State int
 
 const (

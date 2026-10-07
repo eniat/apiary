@@ -13,11 +13,12 @@ import (
 	"time"
 
 	"github.com/docker/docker/client"
+	"github.com/eniat/apiary/orchestrator/internal/apiary"
 )
 
 // cowrie log paths inside the image
 const (
-	cowrieLogDir  = "/cowrie/cowrie-git/var/log/cowrie"
+	cowrieLogDir  = apiary.CowrieLogDir
 	cowrieLogFile = "cowrie.json"
 )
 
