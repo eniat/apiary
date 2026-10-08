@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
@@ -33,6 +34,9 @@ type Provisioner struct {
 	network string
 	logRoot string
 
+	readyTimeout time.Duration
+	readyBackoff time.Duration
+
 	mu   sync.Mutex
 	pots map[string]*apiary.Honeypot
 }
@@ -44,6 +48,9 @@ func New(cli *client.Client, img, network, logRoot string) *Provisioner {
 		network: network,
 		logRoot: logRoot,
 		pots:    map[string]*apiary.Honeypot{},
+
+		readyTimeout: 60 * time.Second,
+		readyBackoff: 100 * time.Millisecond,
 	}
 }
 
@@ -63,6 +70,11 @@ func (p *Provisioner) Create(ctx context.Context, n int) ([]*apiary.Honeypot, er
 		go func() {
 			defer wg.Done()
 			hps[i], errs[i] = p.one(ctx)
+			// a honeypot that never answers is destroyed not leaked
+			if errs[i] != nil && hps[i] != nil {
+				p.Discard(ctx, hps[i])
+				hps[i] = nil
+			}
 		}()
 	}
 	wg.Wait()
@@ -120,6 +132,9 @@ func (p *Provisioner) one(ctx context.Context) (*apiary.Honeypot, error) {
 		return hp, err
 	}
 	if err := p.inspect(ctx, hp); err != nil {
+		return hp, err
+	}
+	if _, err := waitReady(ctx, dialTCP, net.JoinHostPort(hp.IP.String(), strconv.Itoa(potPort)), p.readyTimeout, p.readyBackoff); err != nil {
 		return hp, err
 	}
 	hp.State = apiary.Warm
