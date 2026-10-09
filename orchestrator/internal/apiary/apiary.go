@@ -38,8 +38,8 @@ type Provisioner interface {
 }
 
 type Registrar interface {
-	Register(*Honeypot) error
-	Deregister(*Honeypot) error
+	Register(net.IP, *Honeypot) error
+	Deregister(net.IP) error
 }
 
 type Reaper interface {
