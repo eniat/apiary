@@ -3,8 +3,10 @@ package registrar
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
+	"sync"
 
 	"github.com/cilium/ebpf"
 	"github.com/eniat/apiary/orchestrator/internal/apiary"
@@ -23,6 +25,10 @@ type target struct {
 
 type Registrar struct {
 	m *ebpf.Map
+
+	mu sync.Mutex
+	// source ip to honeypot id. the map itself cannot be read backwards
+	srcs map[string]string
 }
 
 func Open(path string) (*Registrar, error) {
@@ -30,12 +36,14 @@ func Open(path string) (*Registrar, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	return &Registrar{m: m}, nil
+	return &Registrar{m: m, srcs: map[string]string{}}, nil
 }
 
 func (r *Registrar) Close() error {
 	return r.m.Close()
 }
+
+var _ apiary.Registrar = (*Registrar)(nil)
 
 // last step before traffic can arrive so the honeypot must already be ready
 func (r *Registrar) Register(src net.IP, hp *apiary.Honeypot) error {
@@ -47,7 +55,40 @@ func (r *Registrar) Register(src net.IP, hp *apiary.Honeypot) error {
 	if err != nil {
 		return err
 	}
-	return r.m.Put(k, v)
+	if err := r.m.Put(k, v); err != nil {
+		return err
+	}
+	r.mu.Lock()
+	r.srcs[src.String()] = hp.ID
+	r.mu.Unlock()
+	return nil
+}
+
+// a row that is already gone is not an error
+func (r *Registrar) Deregister(src net.IP) error {
+	k, err := Key(src)
+	if err != nil {
+		return err
+	}
+	if err := r.m.Delete(k); err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
+		return err
+	}
+	r.mu.Lock()
+	delete(r.srcs, src.String())
+	r.mu.Unlock()
+	return nil
+}
+
+func (r *Registrar) SourcesFor(id string) []net.IP {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var out []net.IP
+	for s, hp := range r.srcs {
+		if hp == id {
+			out = append(out, net.ParseIP(s))
+		}
+	}
+	return out
 }
 
 // network order bytes read back little endian so the sdk writes them unchanged

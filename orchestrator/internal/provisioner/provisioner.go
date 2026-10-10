@@ -189,6 +189,7 @@ func (p *Provisioner) Promote(ctx context.Context) (*apiary.Honeypot, error) {
 	for _, hp := range p.pots {
 		if hp.State == apiary.Warm {
 			hp.State = apiary.Live
+			hp.LastSeen = time.Now()
 			return hp, nil
 		}
 	}

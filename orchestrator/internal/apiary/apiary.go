@@ -43,7 +43,7 @@ type Registrar interface {
 }
 
 type Reaper interface {
-	ReapIdle(context.Context) (int, error)
+	ReapIdle(context.Context, time.Time, map[string]int) (int, error)
 }
 
 type Metrics interface {
