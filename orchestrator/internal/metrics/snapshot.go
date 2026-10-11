@@ -36,24 +36,29 @@ func NewCollector(p Pool, r resourceSource, s sessionSource, u unservedSource) *
 	return &Collector{pool: p, res: r, sess: s, unserved: u}
 }
 
-// built once per tick and passed by value
-func (c *Collector) Sample(ctx context.Context, now, lastAction time.Time, lastDur time.Duration) (policy.Snapshot, error) {
+// built once per tick. the snapshot goes to the policy and the counts to the reaper
+func (c *Collector) Sample(ctx context.Context, now, lastAction time.Time, lastDur time.Duration) (policy.Snapshot, map[string]int, error) {
 	hps := c.pool.List()
 	ids := liveIDs(hps)
 
 	us, err := c.res.Sample(ctx, ids)
 	if err != nil {
-		return policy.Snapshot{}, err
+		return policy.Snapshot{}, nil, err
 	}
 	cs, err := c.sess.Sample(ctx, ids, now)
 	if err != nil {
-		return policy.Snapshot{}, err
+		return policy.Snapshot{}, nil, err
 	}
 	un, err := c.unserved.Sample()
 	if err != nil {
-		return policy.Snapshot{}, err
+		return policy.Snapshot{}, nil, err
 	}
-	return aggregate(now, hps, us, cs, un, lastAction, lastDur), nil
+
+	counts := make(map[string]int, len(cs))
+	for _, x := range cs {
+		counts[x.ID] = x.Sessions
+	}
+	return aggregate(now, hps, us, cs, un, lastAction, lastDur), counts, nil
 }
 
 // warm honeypots serve nothing so they are not sampled

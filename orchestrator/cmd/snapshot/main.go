@@ -47,7 +47,7 @@ func main() {
 	c := metrics.NewCollector(pool, metrics.NewResources(cli), metrics.NewSessions(cli, 5*time.Minute), u)
 	for range *ticks {
 		now := time.Now()
-		s, err := c.Sample(context.Background(), now, time.Time{}, 0)
+		s, _, err := c.Sample(context.Background(), now, time.Time{}, 0)
 		if err != nil {
 			log.Fatal(err)
 		}
