@@ -28,6 +28,7 @@ func main() {
 	logs := flag.String("logs", "/var/lib/apiary/logs", "host log root")
 	pin := flag.String("pin", registrar.RedirectPin, "pinned redirect map")
 	upin := flag.String("unserved-pin", metrics.UnservedPin, "pinned unserved map")
+	archive := flag.String("archive", "/var/lib/apiary/archive", "durable log archive root")
 	ticks := flag.Int("ticks", 0, "stop after n ticks, zero runs until ctrl-c")
 	flag.Parse()
 
@@ -62,7 +63,8 @@ func main() {
 	defer un.Close()
 
 	coll := metrics.NewCollector(p, metrics.NewResources(cli), metrics.NewSessions(cli, 5*time.Minute), un)
-	l := loop.New(coll, policy.Threshold{Up: *up, MinLive: *minLive}, p, reaper.New(p, reg, *grace), *warm)
+	rp := reaper.New(p, reg, reaper.DirArchiver{LogRoot: *logs, Dest: *archive}, *grace, func(err error) { log.Print(err) })
+	l := loop.New(coll, policy.Threshold{Up: *up, MinLive: *minLive}, p, rp, *warm)
 
 	n := 0
 	err = l.Run(ctx, *every, func(res loop.Result) {

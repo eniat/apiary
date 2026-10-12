@@ -36,6 +36,7 @@ type Provisioner struct {
 
 	readyTimeout time.Duration
 	readyBackoff time.Duration
+	drainTimeout time.Duration
 
 	mu   sync.Mutex
 	pots map[string]*apiary.Honeypot
@@ -51,6 +52,7 @@ func New(cli *client.Client, img, network, logRoot string) *Provisioner {
 
 		readyTimeout: 60 * time.Second,
 		readyBackoff: 100 * time.Millisecond,
+		drainTimeout: 10 * time.Second,
 	}
 }
 
@@ -106,17 +108,23 @@ func (p *Provisioner) one(ctx context.Context) (*apiary.Honeypot, error) {
 		return nil, err
 	}
 
-	dir := filepath.Join(p.logRoot, name)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return nil, err
-	}
-	if err := os.Chown(dir, cowrieUID, cowrieUID); err != nil {
-		return nil, err
+	dir := filepath.Join(p.logRoot, name, "log")
+	state := filepath.Join(p.logRoot, name, "state")
+	for _, d := range []string{dir, state, filepath.Join(state, "tty")} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			return nil, err
+		}
+		if err := os.Chown(d, cowrieUID, cowrieUID); err != nil {
+			return nil, err
+		}
 	}
 
 	resp, err := p.cli.ContainerCreate(ctx,
 		&container.Config{Image: p.image},
-		&container.HostConfig{Binds: []string{dir + ":" + apiary.CowrieLogDir}},
+		&container.HostConfig{Binds: []string{
+			dir + ":" + apiary.CowrieLogDir,
+			state + ":" + apiary.CowrieStateDir,
+		}},
 		&dnet.NetworkingConfig{
 			EndpointsConfig: map[string]*dnet.EndpointSettings{p.network: {}},
 		},

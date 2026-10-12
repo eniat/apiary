@@ -2,6 +2,7 @@ package reaper
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 	"time"
@@ -9,7 +10,7 @@ import (
 	"github.com/eniat/apiary/orchestrator/internal/apiary"
 )
 
-var now = time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
+var now = time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
 
 func hp(id string, st apiary.State, age time.Duration) *apiary.Honeypot {
 	return &apiary.Honeypot{ID: id, State: st, LastSeen: now.Add(-age)}
@@ -29,7 +30,7 @@ func TestIdle(t *testing.T) {
 		{"idle exactly at the grace", []*apiary.Honeypot{hp("a", apiary.Live, time.Minute)}, nil, 0},
 		{"holding a session", []*apiary.Honeypot{hp("a", apiary.Live, time.Hour)}, map[string]int{"a": 1}, 0},
 		{"warm is never reaped", []*apiary.Honeypot{hp("a", apiary.Warm, time.Hour)}, nil, 0},
-		{"draining is never reaped", []*apiary.Honeypot{hp("a", apiary.Draining, time.Hour)}, nil, 0},
+		{"draining is never retried", []*apiary.Honeypot{hp("a", apiary.Draining, time.Hour)}, nil, 0},
 		{"no last seen", []*apiary.Honeypot{{ID: "a", State: apiary.Live}}, nil, 0},
 		{"one of three", []*apiary.Honeypot{
 			hp("a", apiary.Live, time.Hour),
@@ -58,12 +59,20 @@ func TestTouchRefreshesBusy(t *testing.T) {
 
 type fakePool struct {
 	hps      []*apiary.Honeypot
+	steps    []string
 	discards []string
 }
 
 func (f *fakePool) List() []*apiary.Honeypot { return f.hps }
 
+func (f *fakePool) Drain(_ context.Context, h *apiary.Honeypot) error {
+	f.steps = append(f.steps, "drain "+h.ID)
+	h.State = apiary.Draining
+	return nil
+}
+
 func (f *fakePool) Discard(_ context.Context, h *apiary.Honeypot) error {
+	f.steps = append(f.steps, "discard "+h.ID)
 	f.discards = append(f.discards, h.ID)
 	h.State = apiary.Dead
 	return nil
@@ -71,21 +80,35 @@ func (f *fakePool) Discard(_ context.Context, h *apiary.Honeypot) error {
 
 type fakeRows struct {
 	srcs  map[string][]net.IP
-	order []string
+	steps *[]string
 }
 
 func (f *fakeRows) SourcesFor(id string) []net.IP { return f.srcs[id] }
 
 func (f *fakeRows) Deregister(ip net.IP) error {
-	f.order = append(f.order, "deregister "+ip.String())
+	*f.steps = append(*f.steps, "deregister "+ip.String())
 	return nil
 }
 
-func TestReapDeregistersBeforeDestroy(t *testing.T) {
-	pool := &fakePool{hps: []*apiary.Honeypot{hp("a", apiary.Live, time.Hour)}}
-	rows := &fakeRows{srcs: map[string][]net.IP{"a": {net.ParseIP("10.10.10.20")}}}
+type fakeArchiver struct {
+	steps *[]string
+	err   error
+}
 
-	r := New(pool, rows, time.Minute)
+func (f *fakeArchiver) Archive(_ context.Context, h *apiary.Honeypot) error {
+	if f.err != nil {
+		return f.err
+	}
+	*f.steps = append(*f.steps, "archive "+h.ID)
+	return nil
+}
+
+func TestTeardownOrder(t *testing.T) {
+	pool := &fakePool{hps: []*apiary.Honeypot{hp("a", apiary.Live, time.Hour)}}
+	rows := &fakeRows{srcs: map[string][]net.IP{"a": {net.ParseIP("10.10.10.20")}}, steps: &pool.steps}
+	arch := &fakeArchiver{steps: &pool.steps}
+
+	r := New(pool, rows, arch, time.Minute, nil)
 	n, err := r.ReapIdle(context.Background(), now, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -93,22 +116,53 @@ func TestReapDeregistersBeforeDestroy(t *testing.T) {
 	if n != 1 {
 		t.Errorf("got %d reaped, want 1", n)
 	}
-	if len(rows.order) != 1 || rows.order[0] != "deregister 10.10.10.20" {
-		t.Errorf("got %v, want one deregister", rows.order)
+
+	want := []string{"deregister 10.10.10.20", "drain a", "archive a", "discard a"}
+	if len(pool.steps) != len(want) {
+		t.Fatalf("got %v, want %v", pool.steps, want)
 	}
-	if len(pool.discards) != 1 || pool.discards[0] != "a" {
-		t.Errorf("got %v, want [a]", pool.discards)
+	for i := range want {
+		if pool.steps[i] != want[i] {
+			t.Errorf("step %d: got %q, want %q", i, pool.steps[i], want[i])
+		}
 	}
 }
 
-func TestReapSpareseBusyOne(t *testing.T) {
+func TestArchiveFailureKeepsTheContainer(t *testing.T) {
+	pool := &fakePool{hps: []*apiary.Honeypot{hp("a", apiary.Live, time.Hour)}}
+	rows := &fakeRows{srcs: map[string][]net.IP{}, steps: &pool.steps}
+	arch := &fakeArchiver{steps: &pool.steps, err: errors.New("disk full")}
+
+	var alerted error
+	r := New(pool, rows, arch, time.Minute, func(err error) { alerted = err })
+
+	n, err := r.ReapIdle(context.Background(), now, nil)
+	if err != nil {
+		t.Fatalf("want nil, got %v", err)
+	}
+	if n != 0 {
+		t.Errorf("got %d reaped, want 0", n)
+	}
+	if len(pool.discards) != 0 {
+		t.Errorf("got %v destroyed, want none", pool.discards)
+	}
+	if pool.hps[0].State != apiary.Draining {
+		t.Errorf("got state %v, want Draining", pool.hps[0].State)
+	}
+	if alerted == nil {
+		t.Error("want an alert, got none")
+	}
+}
+
+func TestReapSparesBusyOne(t *testing.T) {
 	pool := &fakePool{hps: []*apiary.Honeypot{
 		hp("a", apiary.Live, time.Hour),
 		hp("b", apiary.Live, time.Hour),
 	}}
-	rows := &fakeRows{srcs: map[string][]net.IP{}}
+	rows := &fakeRows{srcs: map[string][]net.IP{}, steps: &pool.steps}
+	arch := &fakeArchiver{steps: &pool.steps}
 
-	r := New(pool, rows, time.Minute)
+	r := New(pool, rows, arch, time.Minute, nil)
 	n, err := r.ReapIdle(context.Background(), now, map[string]int{"b": 1})
 	if err != nil {
 		t.Fatal(err)

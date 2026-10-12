@@ -10,6 +10,9 @@ import (
 // where cowrie writes its json log inside the image
 const CowrieLogDir = "/cowrie/cowrie-git/var/log/cowrie"
 
+// tty recordings and host keys live here
+const CowrieStateDir = "/cowrie/cowrie-git/var/lib/cowrie"
+
 type State int
 
 const (
