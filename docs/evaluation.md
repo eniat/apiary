@@ -61,3 +61,26 @@ The map write is microseconds. Nearly all of this is waking the reader goroutine
 Excludes the attacker's own delay before its next connection, which dominates any end to end figure and measures the attacker not the system.
 
 Adds to the fidelity side channel: a flagged source meets this delay once, on its first connection after being flagged.
+
+## cold start
+
+Twenty samples of container create through to a TCP connection the honeypot accepts, taken in three batches on an otherwise idle defender.
+
+| batch | n | min | median | mean | max | sd |
+|-------|----|-------|--------|-------|--------|-------|
+| 1     | 10 | 2.732 | 7.168  | 6.587 | 10.335 | 2.695 |
+| 2     | 5  | 2.782 | 2.845  | 2.844 | 2.886  | 0.035 |
+| 3     | 5  | 3.974 | 9.502  | 9.050 | 11.556 | 2.746 |
+| all   | 20 | 2.732 | 6.346  | 6.267 | 11.556 | 3.230 |
+
+- Measured by `orchestrator/cmd/coldstart`, which times create through to an accepted dial then destroys and repeats
+- The spread matters more than the mean. Same command and same host minutes apart gave a batch at 2.844 with almost no variance and a batch at 9.050 with a 7.6 second range
+- A honeypot created when the attack arrives cant be promised to that attacker. At the ninetieth percentile the wait is 10.3 seconds and no client waits that long
+- Registering before ready was tested separately and refused nothing across five attempts, so the loss is in the create and not in the last moment before the listener comes up
+
+### open: resets during scale events
+
+- With the data plane attached, 27 connections to a live decoy were refused across five create and destroy cycles, in five clusters of 0.67 to 0.93 seconds, each opening within 0.26 seconds of a teardown and closing shortly after the next create
+- The same cycle with the data plane detached refused none of 300 connections
+- Source port reuse is ruled out. 494 connections used 494 distinct ports, so no stale flow entry is involved
+- Cause not established. Recorded because it reproduces and because it attributes a reset to the decoy that the decoy did not send

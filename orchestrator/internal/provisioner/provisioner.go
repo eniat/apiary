@@ -38,6 +38,9 @@ type Provisioner struct {
 	readyBackoff time.Duration
 	drainTimeout time.Duration
 
+	// fires once a honeypot has an address but before it is ready. experiments only
+	OnInspect func(*apiary.Honeypot)
+
 	mu   sync.Mutex
 	pots map[string]*apiary.Honeypot
 }
@@ -141,6 +144,9 @@ func (p *Provisioner) one(ctx context.Context) (*apiary.Honeypot, error) {
 	}
 	if err := p.inspect(ctx, hp); err != nil {
 		return hp, err
+	}
+	if p.OnInspect != nil {
+		p.OnInspect(hp)
 	}
 	if _, err := waitReady(ctx, dialTCP, net.JoinHostPort(hp.IP.String(), strconv.Itoa(potPort)), p.readyTimeout, p.readyBackoff); err != nil {
 		return hp, err
