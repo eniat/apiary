@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/eniat/apiary/orchestrator/internal/apiary"
@@ -31,25 +32,38 @@ type Result struct {
 	Snapshot policy.Snapshot
 	Action   policy.Action
 	Promoted string
+	Took     time.Duration
 	Refilled int
 	Reaped   int
 	Note     string
 }
 
 type Loop struct {
-	coll Collector
-	pol  policy.Decider
-	pool Pool
-	reap Reaper
-	warm int
+	coll  Collector
+	pol   policy.Decider
+	pool  Pool
+	reap  Reaper
+	warm  int
+	alert func(error)
+
+	wg sync.WaitGroup
+	mu sync.Mutex
+	// creates already asked for and not yet finished
+	inflight int
 
 	lastAction time.Time
 	lastDur    time.Duration
 }
 
-func New(c Collector, p policy.Decider, pool Pool, r Reaper, warm int) *Loop {
-	return &Loop{coll: c, pol: p, pool: pool, reap: r, warm: warm}
+func New(c Collector, p policy.Decider, pool Pool, r Reaper, warm int, alert func(error)) *Loop {
+	if alert == nil {
+		alert = func(error) {}
+	}
+	return &Loop{coll: c, pol: p, pool: pool, reap: r, warm: warm, alert: alert}
 }
+
+// waits for refills still running. call before shutting down
+func (l *Loop) Drain() { l.wg.Wait() }
 
 // now is passed in so nothing below here reads the clock to decide
 func (l *Loop) Tick(ctx context.Context, now time.Time) (Result, error) {
@@ -63,13 +77,16 @@ func (l *Loop) Tick(ctx context.Context, now time.Time) (Result, error) {
 
 	switch res.Action {
 	case policy.ScaleUp:
-		err = l.up(ctx, &res)
+		err = l.up(&res)
 	case policy.ScaleDown:
 		res.Reaped, err = l.reap.ReapIdle(ctx, now, counts)
 	}
 	if err != nil {
 		return res, err
 	}
+
+	// every tick. the pool is a target not a reaction to a scale up
+	res.Refilled = l.refill(ctx)
 
 	// a hold costs nothing so it is not an action
 	if res.Action != policy.Hold {
@@ -79,28 +96,48 @@ func (l *Loop) Tick(ctx context.Context, now time.Time) (Result, error) {
 	return res, nil
 }
 
-// promote then refill. a dry pool is tolerated
-func (l *Loop) up(ctx context.Context, res *Result) error {
-	hp, err := l.pool.Promote(ctx)
+// a map write. the container was started minutes ago
+func (l *Loop) up(res *Result) error {
+	start := time.Now()
+	hp, err := l.pool.Promote(context.Background())
+	res.Took = time.Since(start)
+
 	switch {
 	case errors.Is(err, provisioner.ErrPoolEmpty):
 		res.Note = "warm pool empty"
+		return nil
 	case err != nil:
 		return err
-	default:
-		res.Promoted = hp.ID
 	}
-
-	short := l.warm - warmCount(l.pool.List())
-	if short <= 0 {
-		return nil
-	}
-	hps, err := l.pool.Create(ctx, short)
-	if err != nil {
-		return err
-	}
-	res.Refilled = len(hps)
+	res.Promoted = hp.ID
 	return nil
+}
+
+// fires and returns. a create takes seconds and the tick cant wait for it
+func (l *Loop) refill(ctx context.Context) int {
+	l.mu.Lock()
+	short := l.warm - warmCount(l.pool.List()) - l.inflight
+	if short <= 0 {
+		l.mu.Unlock()
+		return 0
+	}
+	l.inflight += short
+	l.mu.Unlock()
+
+	l.wg.Add(1)
+	go func() {
+		defer l.wg.Done()
+		_, err := l.pool.Create(ctx, short)
+
+		l.mu.Lock()
+		l.inflight -= short
+		l.mu.Unlock()
+
+		if err != nil && ctx.Err() == nil {
+			l.alert(fmt.Errorf("refill %d: %w", short, err))
+		}
+	}()
+	return short
 }
 
 func warmCount(hps []*apiary.Honeypot) int {
@@ -120,10 +157,12 @@ func (l *Loop) Run(ctx context.Context, every time.Duration, report func(Result)
 	for {
 		select {
 		case <-ctx.Done():
+			l.Drain()
 			return ctx.Err()
 		case now := <-t.C:
 			res, err := l.Tick(ctx, now)
 			if err != nil {
+				l.Drain()
 				return fmt.Errorf("tick: %w", err)
 			}
 			report(res)

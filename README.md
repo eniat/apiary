@@ -41,3 +41,7 @@ never mid-session.
 - Built: darknet and scan detection in the kernel, thresholds chosen from a sweep, flagged sources registered from a ring buffer
 - Next: the orchestrator
 - Topology in `docs/lab-setup.md`, boundary in `docs/decisions/0002-lab-boundary.md`, metrics in `docs/evaluation-plan.md`, handoff in `docs/writeups/tcp-handoff.md`
+
+## lineage
+
+The warm pool is the same answer Potemkin gave in 2005. That work cloned idle virtual machines copy on write so a honeypot existed before the attacker needed one, because booting on demand lost the connection that triggered it. Containers and eBPF did not exist then and the constraint has not moved. Measured here at twenty cold starts spanning 2.7 to 11.6 seconds against a promotion that is a map write.

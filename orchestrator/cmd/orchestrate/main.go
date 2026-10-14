@@ -64,7 +64,7 @@ func main() {
 
 	coll := metrics.NewCollector(p, metrics.NewResources(cli), metrics.NewSessions(cli, 5*time.Minute), un)
 	rp := reaper.New(p, reg, reaper.DirArchiver{LogRoot: *logs, Dest: *archive}, *grace, func(err error) { log.Print(err) })
-	l := loop.New(coll, policy.Threshold{Up: *up, MinLive: *minLive}, p, rp, *warm)
+	l := loop.New(coll, policy.Threshold{Up: *up, MinLive: *minLive}, p, rp, *warm, func(err error) { log.Print(err) })
 
 	n := 0
 	err = l.Run(ctx, *every, func(res loop.Result) {
