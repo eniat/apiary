@@ -51,6 +51,9 @@ type Loop struct {
 	// creates already asked for and not yet finished
 	inflight int
 
+	// creates on demand instead of promoting. the path the warm pool replaced
+	Cold bool
+
 	lastAction time.Time
 	lastDur    time.Duration
 }
@@ -77,7 +80,7 @@ func (l *Loop) Tick(ctx context.Context, now time.Time) (Result, error) {
 
 	switch res.Action {
 	case policy.ScaleUp:
-		err = l.up(&res)
+		err = l.up(ctx, &res)
 	case policy.ScaleDown:
 		res.Reaped, err = l.reap.ReapIdle(ctx, now, counts)
 	}
@@ -97,8 +100,15 @@ func (l *Loop) Tick(ctx context.Context, now time.Time) (Result, error) {
 }
 
 // a map write. the container was started minutes ago
-func (l *Loop) up(res *Result) error {
+func (l *Loop) up(ctx context.Context, res *Result) error {
 	start := time.Now()
+	if l.Cold {
+		// blocking on purpose. this is what scaling on demand costs
+		if _, err := l.pool.Create(ctx, 1); err != nil {
+			res.Took = time.Since(start)
+			return err
+		}
+	}
 	hp, err := l.pool.Promote(context.Background())
 	res.Took = time.Since(start)
 

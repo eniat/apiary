@@ -30,6 +30,7 @@ func main() {
 	upin := flag.String("unserved-pin", metrics.UnservedPin, "pinned unserved map")
 	archive := flag.String("archive", "/var/lib/apiary/archive", "durable log archive root")
 	ticks := flag.Int("ticks", 0, "stop after n ticks, zero runs until ctrl-c")
+	cold := flag.Bool("cold", false, "create on demand instead of promoting from the pool")
 	flag.Parse()
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -66,12 +67,17 @@ func main() {
 	rp := reaper.New(p, reg, reaper.DirArchiver{LogRoot: *logs, Dest: *archive}, *grace, func(err error) { log.Print(err) })
 	l := loop.New(coll, policy.Threshold{Up: *up, MinLive: *minLive}, p, rp, *warm, func(err error) { log.Print(err) })
 
+	l.Cold = *cold
+
 	n := 0
 	err = l.Run(ctx, *every, func(res loop.Result) {
 		s := res.Snapshot
 		fmt.Printf("%s live %d warm %d sessions %d unserved %d action %s promoted %q refilled %d reaped %d %s\n",
 			s.Now.Format("15:04:05"), s.Live, s.Warm, s.Sessions, s.Unserved,
 			res.Action, res.Promoted, res.Refilled, res.Reaped, res.Note)
+		if res.Took > 0 {
+			fmt.Printf("  scale up took %s\n", res.Took.Round(time.Microsecond))
+		}
 		n++
 		if *ticks > 0 && n >= *ticks {
 			stop()

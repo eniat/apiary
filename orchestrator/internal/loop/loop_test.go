@@ -229,3 +229,41 @@ func TestHoldDoesNotAdvanceLastAction(t *testing.T) {
 		t.Errorf("got %v, want zero", coll.lastAction)
 	}
 }
+
+func TestColdCreatesBeforePromoting(t *testing.T) {
+	pool := &fakePool{delay: 200 * time.Millisecond}
+	l := New(&fakeColl{}, fixedPolicy(policy.ScaleUp), pool, &fakeReaper{}, 0, nil)
+	l.Cold = true
+
+	res, err := l.Tick(context.Background(), now)
+	l.Drain()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Promoted == "" {
+		t.Error("want a promotion, got none")
+	}
+	if res.Took < 200*time.Millisecond {
+		t.Errorf("took %s, want the create to be on the tick", res.Took)
+	}
+	if pool.count() != 1 {
+		t.Errorf("got created %d, want 1", pool.count())
+	}
+}
+
+func TestWarmPromotesWithoutCreating(t *testing.T) {
+	pool := &fakePool{hps: warm(1), delay: 200 * time.Millisecond}
+	l := New(&fakeColl{}, fixedPolicy(policy.ScaleUp), pool, &fakeReaper{}, 0, nil)
+
+	res, err := l.Tick(context.Background(), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Promoted != "a" {
+		t.Errorf("got %q, want a", res.Promoted)
+	}
+	if res.Took > 10*time.Millisecond {
+		t.Errorf("took %s, want a map write", res.Took)
+	}
+	l.Drain()
+}

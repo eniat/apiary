@@ -84,3 +84,32 @@ Twenty samples of container create through to a TCP connection the honeypot acce
 - The same cycle with the data plane detached refused none of 300 connections
 - Source port reuse is ruled out. 494 connections used 494 distinct ports, so no stale flow entry is involved
 - Cause not established. Recorded because it reproduces and because it attributes a reset to the decoy that the decoy did not send
+
+## warm pool
+
+Create to first accepted connection against promote to redirect row written, measured by `cmd/coldstart` and `cmd/promote`.
+
+| path | n | min | mean | max |
+|-------------------|----|---------|---------|----------|
+| create on demand  | 20 | 2.732 s | 6.267 s | 11.556 s |
+| promote from pool | 10 | 5 µs    | 9 µs    | 32 µs    |
+
+Log scale, one mark per decade.
+
+    1µs      10µs     100µs    1ms      10ms     100ms    1s       10s
+    |--------|--------|--------|--------|--------|--------|--------|
+        * promote 9µs
+                                                           * create 6.27s
+
+Confirmed at the control loop with the same attack profile either side. Creating on demand took 5.421618 s on the tick that decided to scale, promoting took 1 µs.
+
+- Roughly seven hundred thousand times faster, and past the point an attacker could notice it
+- The first promotion of a run costs 32 µs and the rest cost 5 to 6, which is the first write touching a cold page rather than a pool effect
+- Ten warm honeypots start in 21 s, so refilling toward the target is cheap and runs off the control loop rather than on it
+- The bottleneck moves rather than disappearing. Trigger to honeypot is now dominated by the control interval, so a five second tick is a five second worst case however fast promotion gets
+
+### what this does not show
+
+- The connection loss a cold start was expected to cause was never reproduced on this topology, so there is no previously failing test that now passes
+- Registering a honeypot before it was ready refused nothing across five attempts, so the loss was not in the last moment before the listener came up
+- The decoy absorbs anything the redirect does not claim, so a slow scale up here mis-serves an attacker rather than dropping one. With no decoy in the path it would drop them
