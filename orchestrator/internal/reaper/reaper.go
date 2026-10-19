@@ -21,6 +21,8 @@ type Pool interface {
 type Rows interface {
 	Deregister(net.IP) error
 	SourcesFor(string) []net.IP
+	Bound(string, time.Time, time.Duration) bool
+	Refresh(string, time.Time)
 }
 
 type Archiver interface {
@@ -28,28 +30,31 @@ type Archiver interface {
 }
 
 type Reaper struct {
-	pool  Pool
-	rows  Rows
-	arch  Archiver
-	grace time.Duration
-	alert func(error)
+	pool     Pool
+	rows     Rows
+	arch     Archiver
+	grace    time.Duration
+	affinity time.Duration
+	alert    func(error)
 }
 
-func New(p Pool, r Rows, a Archiver, grace time.Duration, alert func(error)) *Reaper {
+// grace is silence before a honeypot counts as idle
+// affinity is how long after that its attacker keeps it
+func New(p Pool, r Rows, a Archiver, grace, affinity time.Duration, alert func(error)) *Reaper {
 	if alert == nil {
 		alert = func(error) {}
 	}
-	return &Reaper{pool: p, rows: r, arch: a, grace: grace, alert: alert}
+	return &Reaper{pool: p, rows: r, arch: a, grace: grace, affinity: affinity, alert: alert}
 }
 
 var _ apiary.Reaper = (*Reaper)(nil)
 
 func (r *Reaper) ReapIdle(ctx context.Context, now time.Time, counts map[string]int) (int, error) {
 	hps := r.pool.List()
-	touch(hps, counts, now)
+	r.touch(hps, counts, now)
 
 	n := 0
-	for _, hp := range idle(hps, counts, now, r.grace) {
+	for _, hp := range r.idle(hps, counts, now) {
 		done, err := r.teardown(ctx, hp)
 		if err != nil {
 			return n, err
@@ -84,18 +89,19 @@ func (r *Reaper) teardown(ctx context.Context, hp *apiary.Honeypot) (bool, error
 	return true, nil
 }
 
-// a busy honeypot is young again
-func touch(hps []*apiary.Honeypot, counts map[string]int, now time.Time) {
+// a busy honeypot is young again and so is its binding
+func (r *Reaper) touch(hps []*apiary.Honeypot, counts map[string]int, now time.Time) {
 	for _, hp := range hps {
 		hp.Sessions = counts[hp.ID]
 		if hp.Sessions > 0 {
 			hp.LastSeen = now
+			r.rows.Refresh(hp.ID, now)
 		}
 	}
 }
 
-// pure. live and empty for longer than the grace
-func idle(hps []*apiary.Honeypot, counts map[string]int, now time.Time, grace time.Duration) []*apiary.Honeypot {
+// live, empty past the grace, and nobody still bound to it
+func (r *Reaper) idle(hps []*apiary.Honeypot, counts map[string]int, now time.Time) []*apiary.Honeypot {
 	var out []*apiary.Honeypot
 	for _, hp := range hps {
 		if hp.State != apiary.Live {
@@ -108,7 +114,11 @@ func idle(hps []*apiary.Honeypot, counts map[string]int, now time.Time, grace ti
 		if hp.LastSeen.IsZero() {
 			continue
 		}
-		if now.Sub(hp.LastSeen) <= grace {
+		if now.Sub(hp.LastSeen) <= r.grace {
+			continue
+		}
+		// the engagement outlives the session
+		if r.rows.Bound(hp.ID, now, r.affinity) {
 			continue
 		}
 		out = append(out, hp)

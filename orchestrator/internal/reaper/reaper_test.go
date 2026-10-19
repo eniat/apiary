@@ -10,51 +10,10 @@ import (
 	"github.com/eniat/apiary/orchestrator/internal/apiary"
 )
 
-var now = time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
+var now = time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
 
 func hp(id string, st apiary.State, age time.Duration) *apiary.Honeypot {
 	return &apiary.Honeypot{ID: id, State: st, LastSeen: now.Add(-age)}
-}
-
-func TestIdle(t *testing.T) {
-	grace := time.Minute
-
-	cases := []struct {
-		name   string
-		hps    []*apiary.Honeypot
-		counts map[string]int
-		want   int
-	}{
-		{"live and long idle", []*apiary.Honeypot{hp("a", apiary.Live, 5*time.Minute)}, nil, 1},
-		{"live and recently idle", []*apiary.Honeypot{hp("a", apiary.Live, time.Second)}, nil, 0},
-		{"idle exactly at the grace", []*apiary.Honeypot{hp("a", apiary.Live, time.Minute)}, nil, 0},
-		{"holding a session", []*apiary.Honeypot{hp("a", apiary.Live, time.Hour)}, map[string]int{"a": 1}, 0},
-		{"warm is never reaped", []*apiary.Honeypot{hp("a", apiary.Warm, time.Hour)}, nil, 0},
-		{"draining is never retried", []*apiary.Honeypot{hp("a", apiary.Draining, time.Hour)}, nil, 0},
-		{"no last seen", []*apiary.Honeypot{{ID: "a", State: apiary.Live}}, nil, 0},
-		{"one of three", []*apiary.Honeypot{
-			hp("a", apiary.Live, time.Hour),
-			hp("b", apiary.Live, time.Second),
-			hp("c", apiary.Live, time.Hour),
-		}, map[string]int{"c": 2}, 1},
-	}
-
-	for _, c := range cases {
-		if got := len(idle(c.hps, c.counts, now, grace)); got != c.want {
-			t.Errorf("%s: got %d, want %d", c.name, got, c.want)
-		}
-	}
-}
-
-func TestTouchRefreshesBusy(t *testing.T) {
-	h := hp("a", apiary.Live, time.Hour)
-	touch([]*apiary.Honeypot{h}, map[string]int{"a": 2}, now)
-	if !h.LastSeen.Equal(now) {
-		t.Errorf("got %v, want %v", h.LastSeen, now)
-	}
-	if h.Sessions != 2 {
-		t.Errorf("got %d sessions, want 2", h.Sessions)
-	}
 }
 
 type fakePool struct {
@@ -79,15 +38,25 @@ func (f *fakePool) Discard(_ context.Context, h *apiary.Honeypot) error {
 }
 
 type fakeRows struct {
-	srcs  map[string][]net.IP
-	steps *[]string
+	srcs      map[string][]net.IP
+	bound     map[string]bool
+	refreshed []string
+	steps     *[]string
 }
 
 func (f *fakeRows) SourcesFor(id string) []net.IP { return f.srcs[id] }
 
 func (f *fakeRows) Deregister(ip net.IP) error {
-	*f.steps = append(*f.steps, "deregister "+ip.String())
+	if f.steps != nil {
+		*f.steps = append(*f.steps, "deregister "+ip.String())
+	}
 	return nil
+}
+
+func (f *fakeRows) Bound(id string, _ time.Time, _ time.Duration) bool { return f.bound[id] }
+
+func (f *fakeRows) Refresh(id string, _ time.Time) {
+	f.refreshed = append(f.refreshed, id)
 }
 
 type fakeArchiver struct {
@@ -99,16 +68,86 @@ func (f *fakeArchiver) Archive(_ context.Context, h *apiary.Honeypot) error {
 	if f.err != nil {
 		return f.err
 	}
-	*f.steps = append(*f.steps, "archive "+h.ID)
+	if f.steps != nil {
+		*f.steps = append(*f.steps, "archive "+h.ID)
+	}
 	return nil
+}
+
+func build(pool *fakePool, bound map[string]bool, srcs map[string][]net.IP, archErr error, alert func(error)) *Reaper {
+	if srcs == nil {
+		srcs = map[string][]net.IP{}
+	}
+	rows := &fakeRows{srcs: srcs, bound: bound, steps: &pool.steps}
+	arch := &fakeArchiver{steps: &pool.steps, err: archErr}
+	return New(pool, rows, arch, time.Minute, 5*time.Minute, alert)
+}
+
+func TestIdle(t *testing.T) {
+	cases := []struct {
+		name   string
+		hps    []*apiary.Honeypot
+		counts map[string]int
+		bound  map[string]bool
+		want   int
+	}{
+		{"live and long idle", []*apiary.Honeypot{hp("a", apiary.Live, 5*time.Minute)}, nil, nil, 1},
+		{"live and recently idle", []*apiary.Honeypot{hp("a", apiary.Live, time.Second)}, nil, nil, 0},
+		{"idle exactly at the grace", []*apiary.Honeypot{hp("a", apiary.Live, time.Minute)}, nil, nil, 0},
+		{"holding a session", []*apiary.Honeypot{hp("a", apiary.Live, time.Hour)}, map[string]int{"a": 1}, nil, 0},
+		{"still bound", []*apiary.Honeypot{hp("a", apiary.Live, time.Hour)}, nil, map[string]bool{"a": true}, 0},
+		{"binding expired", []*apiary.Honeypot{hp("a", apiary.Live, time.Hour)}, nil, map[string]bool{"a": false}, 1},
+		{"warm is never reaped", []*apiary.Honeypot{hp("a", apiary.Warm, time.Hour)}, nil, nil, 0},
+		{"draining is never retried", []*apiary.Honeypot{hp("a", apiary.Draining, time.Hour)}, nil, nil, 0},
+		{"no last seen", []*apiary.Honeypot{{ID: "a", State: apiary.Live}}, nil, nil, 0},
+		{"bound one spared the other taken", []*apiary.Honeypot{
+			hp("a", apiary.Live, time.Hour),
+			hp("b", apiary.Live, time.Hour),
+		}, nil, map[string]bool{"b": true}, 1},
+	}
+
+	for _, c := range cases {
+		pool := &fakePool{hps: c.hps}
+		r := build(pool, c.bound, nil, nil, nil)
+		if got := len(r.idle(c.hps, c.counts, now)); got != c.want {
+			t.Errorf("%s: got %d, want %d", c.name, got, c.want)
+		}
+	}
+}
+
+func TestTouchRefreshesBusy(t *testing.T) {
+	h := hp("a", apiary.Live, time.Hour)
+	pool := &fakePool{hps: []*apiary.Honeypot{h}}
+	rows := &fakeRows{srcs: map[string][]net.IP{}, steps: &pool.steps}
+	r := New(pool, rows, &fakeArchiver{}, time.Minute, 5*time.Minute, nil)
+
+	r.touch(pool.hps, map[string]int{"a": 2}, now)
+	if !h.LastSeen.Equal(now) {
+		t.Errorf("got %v, want %v", h.LastSeen, now)
+	}
+	if h.Sessions != 2 {
+		t.Errorf("got %d sessions, want 2", h.Sessions)
+	}
+	if len(rows.refreshed) != 1 || rows.refreshed[0] != "a" {
+		t.Errorf("got %v refreshed, want [a]", rows.refreshed)
+	}
+}
+
+func TestTouchLeavesIdleBindingsAlone(t *testing.T) {
+	pool := &fakePool{hps: []*apiary.Honeypot{hp("a", apiary.Live, time.Hour)}}
+	rows := &fakeRows{srcs: map[string][]net.IP{}, steps: &pool.steps}
+	r := New(pool, rows, &fakeArchiver{}, time.Minute, 5*time.Minute, nil)
+
+	r.touch(pool.hps, nil, now)
+	if len(rows.refreshed) != 0 {
+		t.Errorf("got %v refreshed, want none", rows.refreshed)
+	}
 }
 
 func TestTeardownOrder(t *testing.T) {
 	pool := &fakePool{hps: []*apiary.Honeypot{hp("a", apiary.Live, time.Hour)}}
-	rows := &fakeRows{srcs: map[string][]net.IP{"a": {net.ParseIP("10.10.10.20")}}, steps: &pool.steps}
-	arch := &fakeArchiver{steps: &pool.steps}
+	r := build(pool, nil, map[string][]net.IP{"a": {net.ParseIP("10.10.10.20")}}, nil, nil)
 
-	r := New(pool, rows, arch, time.Minute, nil)
 	n, err := r.ReapIdle(context.Background(), now, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -130,11 +169,8 @@ func TestTeardownOrder(t *testing.T) {
 
 func TestArchiveFailureKeepsTheContainer(t *testing.T) {
 	pool := &fakePool{hps: []*apiary.Honeypot{hp("a", apiary.Live, time.Hour)}}
-	rows := &fakeRows{srcs: map[string][]net.IP{}, steps: &pool.steps}
-	arch := &fakeArchiver{steps: &pool.steps, err: errors.New("disk full")}
-
 	var alerted error
-	r := New(pool, rows, arch, time.Minute, func(err error) { alerted = err })
+	r := build(pool, nil, nil, errors.New("disk full"), func(err error) { alerted = err })
 
 	n, err := r.ReapIdle(context.Background(), now, nil)
 	if err != nil {
@@ -154,16 +190,14 @@ func TestArchiveFailureKeepsTheContainer(t *testing.T) {
 	}
 }
 
-func TestReapSparesBusyOne(t *testing.T) {
+func TestReapSparesBoundOne(t *testing.T) {
 	pool := &fakePool{hps: []*apiary.Honeypot{
 		hp("a", apiary.Live, time.Hour),
 		hp("b", apiary.Live, time.Hour),
 	}}
-	rows := &fakeRows{srcs: map[string][]net.IP{}, steps: &pool.steps}
-	arch := &fakeArchiver{steps: &pool.steps}
+	r := build(pool, map[string]bool{"b": true}, nil, nil, nil)
 
-	r := New(pool, rows, arch, time.Minute, nil)
-	n, err := r.ReapIdle(context.Background(), now, map[string]int{"b": 1})
+	n, err := r.ReapIdle(context.Background(), now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

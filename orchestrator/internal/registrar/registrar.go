@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/eniat/apiary/orchestrator/internal/apiary"
@@ -23,12 +24,18 @@ type target struct {
 	_        [2]byte
 }
 
+// which honeypot a source is tied to and when it last mattered
+type bind struct {
+	id   string
+	seen time.Time
+}
+
 type Registrar struct {
 	m *ebpf.Map
 
 	mu sync.Mutex
-	// source ip to honeypot id. the map itself cannot be read backwards
-	srcs map[string]string
+	// source ip to binding. the map itself cannot be read backwards
+	srcs map[string]bind
 }
 
 func Open(path string) (*Registrar, error) {
@@ -36,7 +43,7 @@ func Open(path string) (*Registrar, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	return &Registrar{m: m, srcs: map[string]string{}}, nil
+	return &Registrar{m: m, srcs: map[string]bind{}}, nil
 }
 
 func (r *Registrar) Close() error {
@@ -59,7 +66,7 @@ func (r *Registrar) Register(src net.IP, hp *apiary.Honeypot) error {
 		return err
 	}
 	r.mu.Lock()
-	r.srcs[src.String()] = hp.ID
+	r.srcs[src.String()] = bind{id: hp.ID, seen: time.Now()}
 	r.mu.Unlock()
 	return nil
 }
@@ -83,12 +90,36 @@ func (r *Registrar) SourcesFor(id string) []net.IP {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	var out []net.IP
-	for s, hp := range r.srcs {
-		if hp == id {
+	for s, b := range r.srcs {
+		if b.id == id {
 			out = append(out, net.ParseIP(s))
 		}
 	}
 	return out
+}
+
+// an engagement outlives the session so a bound honeypot is not idle
+func (r *Registrar) Bound(id string, now time.Time, ttl time.Duration) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, b := range r.srcs {
+		if b.id == id && now.Sub(b.seen) <= ttl {
+			return true
+		}
+	}
+	return false
+}
+
+// a live session keeps the binding alive
+func (r *Registrar) Refresh(id string, now time.Time) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for s, b := range r.srcs {
+		if b.id == id {
+			b.seen = now
+			r.srcs[s] = b
+		}
+	}
 }
 
 // network order bytes read back little endian so the sdk writes them unchanged

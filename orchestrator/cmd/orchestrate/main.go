@@ -24,6 +24,7 @@ func main() {
 	up := flag.Int("up", 2, "unserved flows that trigger a scale up")
 	minLive := flag.Int("min-live", 1, "live floor the policy respects")
 	grace := flag.Duration("grace", 60*time.Second, "idle time before a honeypot is destroyed")
+	affinity := flag.Duration("affinity", 5*time.Minute, "how long a source keeps its honeypot after the last session")
 	every := flag.Duration("every", 5*time.Second, "tick interval")
 	logs := flag.String("logs", "/var/lib/apiary/logs", "host log root")
 	pin := flag.String("pin", registrar.RedirectPin, "pinned redirect map")
@@ -64,7 +65,7 @@ func main() {
 	defer un.Close()
 
 	coll := metrics.NewCollector(p, metrics.NewResources(cli), metrics.NewSessions(cli, 5*time.Minute), un)
-	rp := reaper.New(p, reg, reaper.DirArchiver{LogRoot: *logs, Dest: *archive}, *grace, func(err error) { log.Print(err) })
+	rp := reaper.New(p, reg, reaper.DirArchiver{LogRoot: *logs, Dest: *archive}, *grace, *affinity, func(err error) { log.Print(err) })
 	l := loop.New(coll, policy.Threshold{Up: *up, MinLive: *minLive}, p, rp, *warm, func(err error) { log.Print(err) })
 
 	l.Cold = *cold

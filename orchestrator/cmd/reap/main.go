@@ -19,6 +19,7 @@ import (
 func main() {
 	src := flag.String("src", "10.10.10.20", "attacker source ip")
 	grace := flag.Duration("grace", 30*time.Second, "idle time before a honeypot is destroyed")
+	affinity := flag.Duration("affinity", 5*time.Minute, "how long a source keeps its honeypot after the last session")
 	logs := flag.String("logs", "/var/lib/apiary/logs", "host log root")
 	pin := flag.String("pin", registrar.RedirectPin, "pinned redirect map")
 	archive := flag.String("archive", "/var/lib/apiary/archive", "durable log archive root")
@@ -62,7 +63,7 @@ func main() {
 	fmt.Printf("registered %s to %s %s\n", ip, first.ID, first.IP)
 	fmt.Printf("from the attacker: ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@%s\n", first.IP)
 
-	rp := reaper.New(p, r, reaper.DirArchiver{LogRoot: *logs, Dest: *archive}, *grace, func(err error) { log.Print(err) })
+	rp := reaper.New(p, r, reaper.DirArchiver{LogRoot: *logs, Dest: *archive}, *grace, *affinity, func(err error) { log.Print(err) })
 	sess := metrics.NewSessions(cli, 5*time.Minute)
 
 	for range *ticks {
