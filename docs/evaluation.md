@@ -113,3 +113,49 @@ Confirmed at the control loop with the same attack profile either side. Creating
 - The connection loss a cold start was expected to cause was never reproduced on this topology, so there is no previously failing test that now passes
 - Registering a honeypot before it was ready refused nothing across five attempts, so the loss was not in the last moment before the listener came up
 - The decoy absorbs anything the redirect does not claim, so a slow scale up here mis-serves an attacker rather than dropping one. With no decoy in the path it would drop them
+
+## scale flapping
+
+One threshold, no hysteresis, no cooldown, under a load that sits on it. Profile in `scripts/load-threshold.sh`, seeded so it replays.
+
+| ticks | up | down | reversals | created | destroyed | reached by an attacker |
+|---|---|---|---|---|---|---|
+| 30 | 13 | 8 | 16 | 13 | 10 | 0 |
+
+Live honeypots per tick, read before that tick acted.
+
+    17:40:29  1 #
+    17:40:34  1 #
+    17:40:39  2 ##
+    17:40:44  1 #
+    17:40:49  1 #
+    17:40:54  2 ##
+    17:40:59  1 #
+    17:41:04  1 #
+    17:41:09  2 ##
+    17:41:19  3 ###
+    17:41:24  1 #
+    17:41:29  2 ##
+    17:41:34  1 #
+    17:41:39  1 #
+    17:41:44  1 #
+    17:41:49  2 ##
+    17:41:54  3 ###
+    17:41:59  2 ##
+    17:42:04  3 ###
+    17:42:09  1 #
+    17:42:14  1 #
+    17:42:19  1 #
+    17:42:24  2 ##
+    17:42:29  1 #
+    17:42:34  1 #
+    17:42:39  1 #
+    17:42:44  2 ##
+    17:42:49  1 #
+    17:42:54  2 ##
+    17:42:59  3 ###
+
+- Every container in that run was created and destroyed without one attacker connection reaching it
+- The load never changed character. It stayed near the threshold the whole time and the policy kept reversing anyway
+- Reversals are direction changes with holds ignored, so they count real churn rather than quiet ticks
+- The same profile is replayed once hysteresis lands, and the two graphs sit side by side

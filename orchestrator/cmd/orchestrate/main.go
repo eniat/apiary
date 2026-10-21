@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/csv"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
 
 	"github.com/docker/docker/client"
@@ -30,6 +32,7 @@ func main() {
 	pin := flag.String("pin", registrar.RedirectPin, "pinned redirect map")
 	upin := flag.String("unserved-pin", metrics.UnservedPin, "pinned unserved map")
 	archive := flag.String("archive", "/var/lib/apiary/archive", "durable log archive root")
+	csvPath := flag.String("csv", "", "write one row per tick to this path")
 	ticks := flag.Int("ticks", 0, "stop after n ticks, zero runs until ctrl-c")
 	cold := flag.Bool("cold", false, "create on demand instead of promoting from the pool")
 	flag.Parse()
@@ -68,6 +71,20 @@ func main() {
 	rp := reaper.New(p, reg, reaper.DirArchiver{LogRoot: *logs, Dest: *archive}, *grace, *affinity, func(err error) { log.Print(err) })
 	l := loop.New(coll, policy.Threshold{Up: *up, MinLive: *minLive}, p, rp, *warm, func(err error) { log.Print(err) })
 
+	var rows *csv.Writer
+	if *csvPath != "" {
+		f, err := os.Create(*csvPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+		rows = csv.NewWriter(f)
+		defer rows.Flush()
+		if err := rows.Write([]string{"time", "live", "warm", "sessions", "unserved", "action", "promoted", "refilled", "reaped"}); err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	l.Cold = *cold
 
 	n := 0
@@ -78,6 +95,15 @@ func main() {
 			res.Action, res.Promoted, res.Refilled, res.Reaped, res.Note)
 		if res.Took > 0 {
 			fmt.Printf("  scale up took %s\n", res.Took.Round(time.Microsecond))
+		}
+		if rows != nil {
+			_ = rows.Write([]string{
+				s.Now.Format(time.RFC3339), strconv.Itoa(s.Live), strconv.Itoa(s.Warm),
+				strconv.Itoa(s.Sessions), strconv.Itoa(s.Unserved), res.Action.String(),
+				res.Promoted, strconv.Itoa(res.Refilled), strconv.Itoa(res.Reaped),
+			})
+			// flushed every tick so a ctrl-c keeps the run
+			rows.Flush()
 		}
 		n++
 		if *ticks > 0 && n >= *ticks {
