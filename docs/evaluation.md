@@ -114,52 +114,6 @@ Confirmed at the control loop with the same attack profile either side. Creating
 - Registering a honeypot before it was ready refused nothing across five attempts, so the loss was not in the last moment before the listener came up
 - The decoy absorbs anything the redirect does not claim, so a slow scale up here mis-serves an attacker rather than dropping one. With no decoy in the path it would drop them
 
-## scale flapping
-
-One threshold, no hysteresis, no cooldown, under a load that sits on it. Profile in `scripts/load-threshold.sh`, seeded so it replays.
-
-| ticks | up | down | reversals | created | destroyed | reached by an attacker |
-|---|---|---|---|---|---|---|
-| 30 | 13 | 8 | 16 | 13 | 10 | 0 |
-
-Live honeypots per tick, read before that tick acted.
-
-    17:40:29  1 #
-    17:40:34  1 #
-    17:40:39  2 ##
-    17:40:44  1 #
-    17:40:49  1 #
-    17:40:54  2 ##
-    17:40:59  1 #
-    17:41:04  1 #
-    17:41:09  2 ##
-    17:41:19  3 ###
-    17:41:24  1 #
-    17:41:29  2 ##
-    17:41:34  1 #
-    17:41:39  1 #
-    17:41:44  1 #
-    17:41:49  2 ##
-    17:41:54  3 ###
-    17:41:59  2 ##
-    17:42:04  3 ###
-    17:42:09  1 #
-    17:42:14  1 #
-    17:42:19  1 #
-    17:42:24  2 ##
-    17:42:29  1 #
-    17:42:34  1 #
-    17:42:39  1 #
-    17:42:44  2 ##
-    17:42:49  1 #
-    17:42:54  2 ##
-    17:42:59  3 ###
-
-- Every container in that run was created and destroyed without one attacker connection reaching it
-- The load never changed character. It stayed near the threshold the whole time and the policy kept reversing anyway
-- Reversals are direction changes with holds ignored, so they count real churn rather than quiet ticks
-- The same profile is replayed once hysteresis lands, and the two graphs sit side by side
-
 ## scale flapping and hysteresis
 
 Same load profile both times, seeded in `scripts/load-threshold.sh`. Same warm pool, same grace. Only the policy changed. Raw ticks in `docs/evidence/`.
@@ -167,7 +121,7 @@ Same load profile both times, seeded in `scripts/load-threshold.sh`. Same warm p
 | policy | ticks | up | down | reversals | created | destroyed |
 |---|---|---|---|---|---|---|
 | one threshold at 2 | 30 | 11 | 8 | 14 | 11 | 9 |
-| band 1 to 4 | 30 | 3 | 2 | 3 | 3 | 3 |
+| band 1 to 3 | 30 | 3 | 2 | 3 | 3 | 3 |
 
 Live honeypots per tick, one threshold.
 
@@ -236,7 +190,9 @@ Live honeypots per tick, with the band.
     18:02:29  1 #
 
 - Reversals are direction changes with holds ignored, so quiet ticks do not pad the count
-- The band was chosen from the distribution the first run recorded, not picked
+- The band is 1 to 3, covering 19 of the 30 ticks the first run recorded. Taken from that distribution, not guessed
+- A wider band would read better and would be dishonest. The load never exceeds 4, so an up threshold of 4 is not damping, it is scaling switched off
 - A band narrower than the swing in the signal changes nothing. There is a unit test holding that line so it is not quietly forgotten
-- The cost is response time. Four unserved flows now hold instead of scaling, so a genuine ramp is served later than it was
+- The cost is response time. Three unserved flows now hold instead of scaling, so a genuine ramp is served at least a tick later
+- Both tails stay live so reversals drop rather than vanish. A cooldown is what removes the remainder
 - Every container in the first run was created and destroyed without one attacker connection reaching it
