@@ -159,3 +159,84 @@ Live honeypots per tick, read before that tick acted.
 - The load never changed character. It stayed near the threshold the whole time and the policy kept reversing anyway
 - Reversals are direction changes with holds ignored, so they count real churn rather than quiet ticks
 - The same profile is replayed once hysteresis lands, and the two graphs sit side by side
+
+## scale flapping and hysteresis
+
+Same load profile both times, seeded in `scripts/load-threshold.sh`. Same warm pool, same grace. Only the policy changed. Raw ticks in `docs/evidence/`.
+
+| policy | ticks | up | down | reversals | created | destroyed |
+|---|---|---|---|---|---|---|
+| one threshold at 2 | 30 | 11 | 8 | 14 | 11 | 9 |
+| band 1 to 4 | 30 | 3 | 2 | 3 | 3 | 3 |
+
+Live honeypots per tick, one threshold.
+
+    17:52:00  1 #
+    17:52:05  1 #
+    17:52:10  1 #
+    17:52:15  2 ##
+    17:52:20  1 #
+    17:52:25  1 #
+    17:52:30  1 #
+    17:52:35  2 ##
+    17:52:40  1 #
+    17:52:45  1 #
+    17:52:50  2 ##
+    17:52:55  3 ###
+    17:53:00  2 ##
+    17:53:05  3 ###
+    17:53:10  1 #
+    17:53:15  1 #
+    17:53:20  1 #
+    17:53:25  2 ##
+    17:53:30  3 ###
+    17:53:35  2 ##
+    17:53:40  1 #
+    17:53:45  2 ##
+    17:53:50  1 #
+    17:53:55  1 #
+    17:54:00  1 #
+    17:54:05  2 ##
+    17:54:10  1 #
+    17:54:15  1 #
+    17:54:20  1 #
+    17:54:25  2 ##
+
+Live honeypots per tick, with the band.
+
+    18:00:04  1 #
+    18:00:09  1 #
+    18:00:14  1 #
+    18:00:19  1 #
+    18:00:24  1 #
+    18:00:29  1 #
+    18:00:34  1 #
+    18:00:39  1 #
+    18:00:44  1 #
+    18:00:49  1 #
+    18:00:54  1 #
+    18:00:59  1 #
+    18:01:04  2 ##
+    18:01:09  2 ##
+    18:01:14  1 #
+    18:01:19  2 ##
+    18:01:24  2 ##
+    18:01:29  2 ##
+    18:01:34  2 ##
+    18:01:39  3 ###
+    18:01:44  3 ###
+    18:01:49  1 #
+    18:01:54  1 #
+    18:01:59  1 #
+    18:02:04  1 #
+    18:02:09  1 #
+    18:02:14  1 #
+    18:02:19  1 #
+    18:02:24  1 #
+    18:02:29  1 #
+
+- Reversals are direction changes with holds ignored, so quiet ticks do not pad the count
+- The band was chosen from the distribution the first run recorded, not picked
+- A band narrower than the swing in the signal changes nothing. There is a unit test holding that line so it is not quietly forgotten
+- The cost is response time. Four unserved flows now hold instead of scaling, so a genuine ramp is served later than it was
+- Every container in the first run was created and destroyed without one attacker connection reaching it
