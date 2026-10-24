@@ -122,6 +122,7 @@ Same load profile both times, seeded in `scripts/load-threshold.sh`. Same warm p
 |---|---|---|---|---|---|---|
 | one threshold at 2 | 30 | 11 | 8 | 14 | 11 | 9 |
 | band 1 to 3 | 30 | 3 | 2 | 3 | 3 | 3 |
+| band plus 30s down cooldown | 50 | 4 | 4 | 1 | 4 | 4 |
 
 Live honeypots per tick, one threshold.
 
@@ -189,10 +190,69 @@ Live honeypots per tick, with the band.
     18:02:24  1 #
     18:02:29  1 #
 
+
+Live honeypots per tick, band plus a 30 second cooldown on scale down.
+
+    13:13:59  1 #
+    13:14:04  1 #
+    13:14:09  1 #
+    13:14:14  1 #
+    13:14:19  1 #
+    13:14:24  1 #
+    13:14:34  2 ##
+    13:14:39  2 ##
+    13:14:44  2 ##
+    13:14:49  2 ##
+    13:14:54  3 ###
+    13:14:59  3 ###
+    13:15:04  3 ###
+    13:15:09  4 ####
+    13:15:14  4 ####
+    13:15:19  4 ####
+    13:15:24  4 ####
+    13:15:29  4 ####
+    13:15:34  5 #####
+    13:15:39  5 #####
+    13:15:44  5 #####
+    13:15:49  5 #####
+    13:15:54  5 #####
+    13:15:59  5 #####
+    13:16:04  4 ####
+    13:16:09  4 ####
+    13:16:14  4 ####
+    13:16:19  4 ####
+    13:16:24  4 ####
+    13:16:29  4 ####
+    13:16:34  3 ###
+    13:16:39  3 ###
+    13:16:44  3 ###
+    13:16:49  3 ###
+    13:16:54  3 ###
+    13:16:59  3 ###
+    13:17:04  2 ##
+    13:17:09  2 ##
+    13:17:14  2 ##
+    13:17:19  2 ##
+    13:17:24  2 ##
+    13:17:29  2 ##
+    13:17:34  2 ##
+    13:17:39  1 #
+    13:17:44  1 #
+    13:17:49  1 #
+    13:17:54  1 #
+    13:17:59  1 #
+    13:18:04  1 #
+    13:18:19  1 #
+
 - Reversals are direction changes with holds ignored, so quiet ticks do not pad the count
 - The band is 1 to 3, covering 19 of the 30 ticks the first run recorded. Taken from that distribution, not guessed
 - A wider band would read better and would be dishonest. The load never exceeds 4, so an up threshold of 4 is not damping, it is scaling switched off
 - A band narrower than the swing in the signal changes nothing. There is a unit test holding that line so it is not quietly forgotten
 - The cost is response time. Three unserved flows now hold instead of scaling, so a genuine ramp is served at least a tick later
-- Both tails stay live so reversals drop rather than vanish. A cooldown is what removes the remainder
+- Both tails stay live so the band alone only damps. A minimum interval between actions removes the rest
+- The cooldown is asymmetric. Scaling up late loses an attacker, scaling down late costs a container, so up is free and down waits 30 seconds
+- Any action resets both clocks, which is what stops an up and a down trading places on consecutive ticks
+- The third run is longer because the first attempt ended while the load was still running, so it showed the rise and not the fall
+- That longer run also exposed the reaper destroying every idle honeypot at once and taking the fleet to zero. The live floor is now the reapers business and a scale down takes one honeypot, mirroring a scale up promoting one
+- Three ticks are missing from the third run. The loop is synchronous and a slow teardown or a busy host costs a beat. Not chased
 - Every container in the first run was created and destroyed without one attacker connection reaching it

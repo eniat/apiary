@@ -80,7 +80,7 @@ func build(pool *fakePool, bound map[string]bool, srcs map[string][]net.IP, arch
 	}
 	rows := &fakeRows{srcs: srcs, bound: bound, steps: &pool.steps}
 	arch := &fakeArchiver{steps: &pool.steps, err: archErr}
-	return New(pool, rows, arch, time.Minute, 5*time.Minute, alert)
+	return New(pool, rows, arch, time.Minute, 5*time.Minute, 0, alert)
 }
 
 func TestIdle(t *testing.T) {
@@ -119,7 +119,7 @@ func TestTouchRefreshesBusy(t *testing.T) {
 	h := hp("a", apiary.Live, time.Hour)
 	pool := &fakePool{hps: []*apiary.Honeypot{h}}
 	rows := &fakeRows{srcs: map[string][]net.IP{}, steps: &pool.steps}
-	r := New(pool, rows, &fakeArchiver{}, time.Minute, 5*time.Minute, nil)
+	r := New(pool, rows, &fakeArchiver{}, time.Minute, 5*time.Minute, 0, nil)
 
 	r.touch(pool.hps, map[string]int{"a": 2}, now)
 	if !h.LastSeen.Equal(now) {
@@ -136,7 +136,7 @@ func TestTouchRefreshesBusy(t *testing.T) {
 func TestTouchLeavesIdleBindingsAlone(t *testing.T) {
 	pool := &fakePool{hps: []*apiary.Honeypot{hp("a", apiary.Live, time.Hour)}}
 	rows := &fakeRows{srcs: map[string][]net.IP{}, steps: &pool.steps}
-	r := New(pool, rows, &fakeArchiver{}, time.Minute, 5*time.Minute, nil)
+	r := New(pool, rows, &fakeArchiver{}, time.Minute, 5*time.Minute, 0, nil)
 
 	r.touch(pool.hps, nil, now)
 	if len(rows.refreshed) != 0 {
@@ -203,5 +203,48 @@ func TestReapSparesBoundOne(t *testing.T) {
 	}
 	if n != 1 || len(pool.discards) != 1 || pool.discards[0] != "a" {
 		t.Errorf("got %d reaped %v, want 1 [a]", n, pool.discards)
+	}
+}
+
+func TestIdleRespectsTheFloor(t *testing.T) {
+	hps := []*apiary.Honeypot{hp("a", apiary.Live, time.Hour), hp("b", apiary.Live, time.Hour)}
+	pool := &fakePool{hps: hps}
+	rows := &fakeRows{srcs: map[string][]net.IP{}, steps: &pool.steps}
+	r := New(pool, rows, &fakeArchiver{}, time.Minute, 5*time.Minute, 2, nil)
+
+	if got := len(r.idle(hps, nil, now)); got != 0 {
+		t.Errorf("got %d candidates at the floor, want 0", got)
+	}
+}
+
+func TestIdleTakesOneAtATime(t *testing.T) {
+	hps := []*apiary.Honeypot{
+		hp("a", apiary.Live, time.Hour),
+		hp("b", apiary.Live, time.Hour),
+		hp("c", apiary.Live, time.Hour),
+	}
+	pool := &fakePool{hps: hps}
+	rows := &fakeRows{srcs: map[string][]net.IP{}, steps: &pool.steps}
+	r := New(pool, rows, &fakeArchiver{}, time.Minute, 5*time.Minute, 0, nil)
+
+	if got := len(r.idle(hps, nil, now)); got != 1 {
+		t.Errorf("got %d candidates, want 1", got)
+	}
+}
+
+func TestReapStopsAtTheFloor(t *testing.T) {
+	pool := &fakePool{hps: []*apiary.Honeypot{
+		hp("a", apiary.Live, time.Hour),
+		hp("b", apiary.Live, time.Hour),
+	}}
+	rows := &fakeRows{srcs: map[string][]net.IP{}, steps: &pool.steps}
+	r := New(pool, rows, &fakeArchiver{steps: &pool.steps}, time.Minute, 5*time.Minute, 1, nil)
+
+	n, err := r.ReapIdle(context.Background(), now, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 || len(pool.discards) != 1 {
+		t.Errorf("got %d reaped %v, want 1 and one destroyed", n, pool.discards)
 	}
 }

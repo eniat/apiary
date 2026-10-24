@@ -35,16 +35,18 @@ type Reaper struct {
 	arch     Archiver
 	grace    time.Duration
 	affinity time.Duration
+	minLive  int
 	alert    func(error)
 }
 
 // grace is silence before a honeypot counts as idle
 // affinity is how long after that its attacker keeps it
-func New(p Pool, r Rows, a Archiver, grace, affinity time.Duration, alert func(error)) *Reaper {
+// minLive is a floor the policy cannot see the far side of
+func New(p Pool, r Rows, a Archiver, grace, affinity time.Duration, minLive int, alert func(error)) *Reaper {
 	if alert == nil {
 		alert = func(error) {}
 	}
-	return &Reaper{pool: p, rows: r, arch: a, grace: grace, affinity: affinity, alert: alert}
+	return &Reaper{pool: p, rows: r, arch: a, grace: grace, affinity: affinity, minLive: minLive, alert: alert}
 }
 
 var _ apiary.Reaper = (*Reaper)(nil)
@@ -100,9 +102,20 @@ func (r *Reaper) touch(hps []*apiary.Honeypot, counts map[string]int, now time.T
 	}
 }
 
-// live, empty past the grace, and nobody still bound to it
+// live, empty past the grace, nobody bound to it, and above the floor
+// one per call so a scale down mirrors a scale up promoting one
 func (r *Reaper) idle(hps []*apiary.Honeypot, counts map[string]int, now time.Time) []*apiary.Honeypot {
-	var out []*apiary.Honeypot
+	live := 0
+	for _, hp := range hps {
+		if hp.State == apiary.Live {
+			live++
+		}
+	}
+	// the floor is a count not a suggestion
+	if live <= r.minLive {
+		return nil
+	}
+
 	for _, hp := range hps {
 		if hp.State != apiary.Live {
 			continue
@@ -121,7 +134,7 @@ func (r *Reaper) idle(hps []*apiary.Honeypot, counts map[string]int, now time.Ti
 		if r.rows.Bound(hp.ID, now, r.affinity) {
 			continue
 		}
-		out = append(out, hp)
+		return []*apiary.Honeypot{hp}
 	}
-	return out
+	return nil
 }

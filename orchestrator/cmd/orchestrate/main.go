@@ -27,6 +27,8 @@ func main() {
 	minLive := flag.Int("min-live", 1, "live floor the policy respects")
 	down := flag.Int("down", 0, "unserved at or below this allows a scale down")
 	policyName := flag.String("policy", "hysteresis", "threshold or hysteresis")
+	coolUp := flag.Duration("cooldown-up", 0, "minimum gap before another scale up")
+	coolDown := flag.Duration("cooldown-down", 30*time.Second, "minimum gap before another scale down")
 	grace := flag.Duration("grace", 60*time.Second, "idle time before a honeypot is destroyed")
 	affinity := flag.Duration("affinity", 5*time.Minute, "how long a source keeps its honeypot after the last session")
 	every := flag.Duration("every", 5*time.Second, "tick interval")
@@ -70,10 +72,14 @@ func main() {
 	defer un.Close()
 
 	coll := metrics.NewCollector(p, metrics.NewResources(cli), metrics.NewSessions(cli, 5*time.Minute), un)
-	rp := reaper.New(p, reg, reaper.DirArchiver{LogRoot: *logs, Dest: *archive}, *grace, *affinity, func(err error) { log.Print(err) })
+	rp := reaper.New(p, reg, reaper.DirArchiver{LogRoot: *logs, Dest: *archive}, *grace, *affinity, *minLive, func(err error) { log.Print(err) })
 	var dec policy.Decider = policy.Hysteresis{Up: *up, Down: *down, MinLive: *minLive}
 	if *policyName == "threshold" {
 		dec = policy.Threshold{Up: *up, MinLive: *minLive}
+	}
+
+	if *coolUp > 0 || *coolDown > 0 {
+		dec = policy.Cooled{Decider: dec, Up: *coolUp, Down: *coolDown}
 	}
 
 	l := loop.New(coll, dec, p, rp, *warm, func(err error) { log.Print(err) })
