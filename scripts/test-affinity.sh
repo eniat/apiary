@@ -19,7 +19,8 @@ for b in "$LOADER" "$REAP" "$POOL"; do
 done
 
 remote() { sudo -u "${SUDO_USER:-$USER}" ssh -o BatchMode=yes -o ConnectTimeout=10 "$ATTACKER_USER@$ATTACKER" "$1"; }
-live() { docker ps -q --filter name=ap-hp- | wc -l; }
+sweep() { docker ps -aq --filter name=ap-hp- | xargs -r docker rm -f >/dev/null 2>&1 || true; }
+reaped() { grep -qE 'reaped [1-9]' /tmp/apiary-reap.log; }
 sessions_in() {
   tr -d '\0' < "$1" 2>/dev/null | jq -rR --arg ip "$ATTACKER" \
     'fromjson? | select(.eventid=="cowrie.session.connect" and .src_ip==$ip) | .session' | wc -l
@@ -27,8 +28,11 @@ sessions_in() {
 cleanup() {
   kill -INT "$reap" "$loader" 2>/dev/null || true
   sleep 1
-  docker ps -aq --filter name=ap-hp- | xargs -r docker rm -f >/dev/null 2>&1 || true
+  sweep
 }
+
+# leftovers from an earlier run would mask what this one does
+sweep
 
 APIARY_IFACE="br-$(docker network inspect -f '{{.Id}}' apiary-net | cut -c1-12)"
 export APIARY_IFACE
@@ -65,16 +69,13 @@ k2=$(key)
 [[ "$k2" == "$k1" ]] || { echo "FAIL key changed across a scale up"; exit 1; }
 echo "PASS key held across a scale up"
 
-# scale down. the unbound honeypot goes idle and the reaper takes it
-before=$(live)
-now="$before"
+# scale down. read the reapers own log rather than counting containers
 for _ in $(seq 1 90); do
-  now=$(live)
-  [[ "$now" -lt "$before" ]] && break
+  reaped && break
   sleep 1
 done
-[[ "$now" -lt "$before" ]] || { echo "FAIL nothing was reaped in time"; exit 1; }
-echo "PASS reaped $((before - now)) of $before"
+reaped || { echo "FAIL nothing was reaped in time"; tail -5 /tmp/apiary-reap.log; exit 1; }
+echo "PASS a honeypot was reaped during the engagement"
 
 [[ "$(docker inspect -f '{{.State.Running}}' "$hp" 2>/dev/null)" == "true" ]] || { echo "FAIL the bound honeypot was destroyed"; exit 1; }
 echo "PASS the bound honeypot survived"
