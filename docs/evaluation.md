@@ -256,3 +256,18 @@ Live honeypots per tick, band plus a 30 second cooldown on scale down.
 - That longer run also exposed the reaper destroying every idle honeypot at once and taking the fleet to zero. The live floor is now the reapers business and a scale down takes one honeypot, mirroring a scale up promoting one
 - Three ticks are missing from the third run. The loop is synchronous and a slow teardown or a busy host costs a beat. Not chased
 - Every container in the first run was created and destroyed without one attacker connection reaching it
+
+## what the orchestrator work does and does not show
+
+| claim | state |
+|---|---|
+| load driven scaling works end to end | partly. count follows load, binding an attacker to a scaled honeypot still happens in the data plane rather than the loop |
+| no dropped sessions | the reaper refuses a honeypot holding a session and affinity holds it past the grace, both tested. no run has had a session in flight through an orchestrator scale event |
+| no lost logs | yes. drain then copy then verify byte for byte, tty recordings included |
+| cold start shown failing then fixed | latency measured either side. the connection loss it was expected to cause was never reproduced on this topology |
+| affinity shown failing then fixed | no. affinity was built and tested, not observed failing first |
+| flapping shown failing then fixed | yes. same seeded load, 14 reversals to 3 to 0, 11 containers to 4 |
+| demo recorded | yes, `docs/evidence/demo.cast` |
+
+- Two of those gaps are the same gap. The decoy absorbs anything the redirect does not claim, so a slow or missing scale up mis-serves an attacker here rather than dropping one
+- Closing the first row means moving registration into the loop, which is a design change rather than a fix
