@@ -4,6 +4,14 @@ Dynamic honeypot infrastructure that scales the number of live honeypots
 to match attacker load, then steers malicious traffic onto them in the
 kernel data plane.
 
+## Demo
+
+Live honeypot count climbing under a ramp of attack traffic and falling back afterwards, about two minutes.
+
+    asciinema play docs/evidence/demo.cast
+
+Driven by `scripts/load.sh` on the ramp profile. The tick and cooldown are shorter than the defaults so the whole arc fits in one view. The numbers behind it are in `docs/evaluation.md`.
+
 ## The problem
 
 Static honeypot deployments (T-Pot style) run a fixed fleet. Under low

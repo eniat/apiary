@@ -116,7 +116,7 @@ Confirmed at the control loop with the same attack profile either side. Creating
 
 ## scale flapping and hysteresis
 
-Same load profile both times, seeded in `scripts/load-threshold.sh`. Same warm pool, same grace. Only the policy changed. Raw ticks in `docs/evidence/`.
+Same load profile both times, seeded in `scripts/load.sh`. Same warm pool, same grace. Only the policy changed. Raw ticks in `docs/evidence/`.
 
 | policy | ticks | up | down | reversals | created | destroyed |
 |---|---|---|---|---|---|---|
