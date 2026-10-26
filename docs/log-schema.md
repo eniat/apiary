@@ -7,7 +7,7 @@ One shape over both is what lets a single query span them.
 | field    | type              | notes                                 |
 |----------|-------------------|---------------------------------------|
 | ts       | RFC3339 UTC       | converted at ingest                   |
-| instance | string            | container name now, instance id later |
+| instance | string            | container name from the tail path      |
 | honeypot | cowrie \| dionaea | fixed per collector                   |
 | session  | string or null    | cowrie only                           |
 | src_ip   | string            |                                       |
@@ -42,7 +42,7 @@ One shape over both is what lets a single query span them.
 - only these three hold attack data, the rest are static reference tables shipped with the image
 - connections is probe not session.open: a completed record, not a lifecycle event, and session.open would imply a close that never arrives
 - session is null: every connections row is its own root with a null parent, so correlation means grouping by src_ip over a window
-- instance comes from cowrie's sensor field, but dionaea records nothing identifying the honeypot, so the collector injects it
+- instance comes from the tail path not cowrie's sensor, which only holds the docker hostname. dionaea records nothing identifying the honeypot so the collector injects it
 
 ## notes
 
