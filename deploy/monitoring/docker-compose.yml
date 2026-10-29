@@ -35,6 +35,20 @@ services:
       - ./grafana:/etc/grafana/provisioning/datasources:ro
       - grafana-data:/var/lib/grafana
 
+  collector:
+    image: fluent/fluent-bit:latest
+    container_name: mon-collector
+    restart: unless-stopped
+    command: /fluent-bit/bin/fluent-bit -c /etc/apiary/fluent-bit.conf
+    depends_on:
+      - loki
+    networks:
+      - apiary-mon
+    volumes:
+      - /var/lib/apiary/logs:/var/lib/apiary/logs:ro
+      - /var/lib/apiary/flb:/var/lib/apiary/flb
+      - ./:/etc/apiary:ro
+
 networks:
   apiary-mon:
     name: apiary-mon
