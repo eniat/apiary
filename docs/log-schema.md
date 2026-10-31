@@ -51,3 +51,4 @@ One shape over both is what lets a single query span them.
 - Cowrie's log can contain undecodable lines, ingest counts and skips them rather than stopping
 - Cowrie rotates daily but never prunes, rotated logs dropped past a retention window
 - dionaea's sqlite never rotates, sized rather than trimmed
+- the provisioner's readiness dial opens a real cowrie session, so it appears as session.open then session.close from the bridge gateway with no client.version between them. Counts of attacks or unique sources exclude it at query time
