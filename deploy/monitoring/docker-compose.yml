@@ -12,6 +12,24 @@ services:
       - ./loki.yaml:/etc/loki/loki.yaml:ro
       - loki-data:/loki
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mon-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=14d
+    networks:
+      - apiary-mon
+    ports:
+      - "127.0.0.1:9090:9090"
+    # the orchestrator is a host process not a container
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom-data:/prometheus
+
   grafana:
     image: grafana/grafana:latest
     container_name: mon-grafana
@@ -55,4 +73,5 @@ networks:
 
 volumes:
   loki-data:
+  prom-data:
   grafana-data:
