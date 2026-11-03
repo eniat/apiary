@@ -51,6 +51,7 @@ services:
       - "grafana.com:127.0.0.1"
     volumes:
       - ./grafana:/etc/grafana/provisioning/datasources:ro
+      - ./dashboards:/etc/grafana/provisioning/dashboards:ro
       - grafana-data:/var/lib/grafana
 
   collector:

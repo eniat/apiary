@@ -15,3 +15,10 @@ Whether the honeypot looks like the real thing to `nmap -sV`, diffing service an
 ## containment
 
 Egress reachability, tabulated in `containment.md` and extended on each rule change. Escape attempts in the same file, one row each. Whether a container's limits hold when stressed from inside.
+
+## where each metric lives
+
+- panels: honeypot count by state, unserved flows, open sessions, scaling actions against promotions, promotion latency, fleet cpu and memory, attacks over time, unique sources, credential attempts, commands executed, events by class
+- measured once and written up rather than panelled: max concurrent honeypots, cold start against warm promotion, redirect throughput and connect latency against the detached path, nmap service and version diffs, egress and escape results
+- per instance cpu and memory stay out of prometheus, the instance id would be an unbounded label. docker stats on demand instead
+- redirect latency is a per packet figure inside the bpf program and is not exported, it comes from the measurement harness

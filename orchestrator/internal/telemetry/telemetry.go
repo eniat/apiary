@@ -16,6 +16,8 @@ type Metrics struct {
 	honeypots *prometheus.GaugeVec
 	sessions  prometheus.Gauge
 	unserved  prometheus.Gauge
+	cpu       prometheus.Gauge
+	mem       prometheus.Gauge
 	actions   *prometheus.CounterVec
 	promote   prometheus.Histogram
 	reaped    prometheus.Counter
@@ -37,6 +39,15 @@ func New() *Metrics {
 			Name: "apiary_unserved_flows",
 			Help: "flagged flows with nowhere to go",
 		}),
+		// summed over live honeypots, per instance would be an unbounded label
+		cpu: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "apiary_cpu_percent",
+			Help: "cpu across the live fleet",
+		}),
+		mem: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "apiary_memory_bytes",
+			Help: "memory across the live fleet",
+		}),
 		actions: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "apiary_scaling_actions_total",
 			Help: "policy decisions reached",
@@ -52,7 +63,7 @@ func New() *Metrics {
 			Help: "honeypots destroyed",
 		}),
 	}
-	m.reg.MustRegister(m.honeypots, m.sessions, m.unserved, m.actions, m.promote, m.reaped)
+	m.reg.MustRegister(m.honeypots, m.sessions, m.unserved, m.cpu, m.mem, m.actions, m.promote, m.reaped)
 	return m
 }
 
@@ -63,6 +74,8 @@ func (m *Metrics) Observe(res loop.Result) {
 	m.honeypots.WithLabelValues("warm").Set(float64(s.Warm))
 	m.sessions.Set(float64(s.Sessions))
 	m.unserved.Set(float64(s.Unserved))
+	m.cpu.Set(s.CPUPct)
+	m.mem.Set(float64(s.MemBytes))
 	m.actions.WithLabelValues(res.Action.String()).Inc()
 	// an empty pool is a scale up that promoted nothing so it times nothing
 	if res.Promoted != "" {
