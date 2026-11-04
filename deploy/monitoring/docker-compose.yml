@@ -65,6 +65,7 @@ services:
       - apiary-mon
     volumes:
       - /var/lib/apiary/logs:/var/lib/apiary/logs:ro
+      - ../../honeypots/cowrie/data/log:/var/lib/apiary/static/ap-cowrie/log:ro
       - /var/lib/apiary/flb:/var/lib/apiary/flb
       - ./:/etc/apiary:ro
 

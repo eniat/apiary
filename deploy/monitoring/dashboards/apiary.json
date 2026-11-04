@@ -4,7 +4,10 @@
   "schemaVersion": 39,
   "editable": true,
   "refresh": "10s",
-  "time": { "from": "now-1h", "to": "now" },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
   "templating": {
     "list": [
       {
@@ -12,7 +15,10 @@
         "label": "gateway address",
         "type": "textbox",
         "query": "172.30.0.1",
-        "current": { "text": "172.30.0.1", "value": "172.30.0.1" },
+        "current": {
+          "text": "172.30.0.1",
+          "value": "172.30.0.1"
+        },
         "hide": 0
       }
     ]
@@ -23,12 +29,32 @@
       "type": "timeseries",
       "title": "fleet against load",
       "description": "honeypot count versus the signal that drives it",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
       "targets": [
-        { "refId": "A", "expr": "apiary_honeypots", "legendFormat": "{{state}}" },
-        { "refId": "B", "expr": "apiary_unserved_flows", "legendFormat": "unserved" },
-        { "refId": "C", "expr": "apiary_sessions", "legendFormat": "sessions" }
+        {
+          "refId": "A",
+          "expr": "apiary_honeypots",
+          "legendFormat": "{{state}}"
+        },
+        {
+          "refId": "B",
+          "expr": "apiary_unserved_flows",
+          "legendFormat": "unserved"
+        },
+        {
+          "refId": "C",
+          "expr": "apiary_sessions",
+          "legendFormat": "sessions"
+        }
       ]
     },
     {
@@ -36,12 +62,32 @@
       "type": "timeseries",
       "title": "actions against promotions",
       "description": "the gap is the warm pool running dry",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
       "targets": [
-        { "refId": "A", "expr": "sum by (action) (increase(apiary_scaling_actions_total[1m]))", "legendFormat": "{{action}}" },
-        { "refId": "B", "expr": "increase(apiary_promotion_seconds_count[1m])", "legendFormat": "promoted" },
-        { "refId": "C", "expr": "increase(apiary_reaped_total[1m])", "legendFormat": "reaped" }
+        {
+          "refId": "A",
+          "expr": "sum by (action) (increase(apiary_scaling_actions_total[1m]))",
+          "legendFormat": "{{action}}"
+        },
+        {
+          "refId": "B",
+          "expr": "increase(apiary_promotion_seconds_count[1m])",
+          "legendFormat": "promoted"
+        },
+        {
+          "refId": "C",
+          "expr": "increase(apiary_reaped_total[1m])",
+          "legendFormat": "reaped"
+        }
       ]
     },
     {
@@ -49,35 +95,94 @@
       "type": "timeseries",
       "title": "promotion latency",
       "description": "a map write against the cold start it replaced",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
-      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
       "targets": [
-        { "refId": "A", "expr": "histogram_quantile(0.5, sum by (le) (rate(apiary_promotion_seconds_bucket[5m])))", "legendFormat": "p50" },
-        { "refId": "B", "expr": "histogram_quantile(0.9, sum by (le) (rate(apiary_promotion_seconds_bucket[5m])))", "legendFormat": "p90" },
-        { "refId": "C", "expr": "histogram_quantile(1, sum by (le) (rate(apiary_promotion_seconds_bucket[5m])))", "legendFormat": "max" }
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(apiary_promotion_seconds_bucket[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.9, sum by (le) (rate(apiary_promotion_seconds_bucket[5m])))",
+          "legendFormat": "p90"
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(1, sum by (le) (rate(apiary_promotion_seconds_bucket[5m])))",
+          "legendFormat": "max"
+        }
       ]
     },
     {
       "id": 4,
       "type": "timeseries",
       "title": "live fleet cpu",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
-      "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
       "targets": [
-        { "refId": "A", "expr": "apiary_cpu_percent", "legendFormat": "cpu" }
+        {
+          "refId": "A",
+          "expr": "apiary_cpu_percent",
+          "legendFormat": "cpu"
+        }
       ]
     },
     {
       "id": 5,
       "type": "timeseries",
       "title": "live fleet memory",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
-      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
       "targets": [
-        { "refId": "A", "expr": "apiary_memory_bytes", "legendFormat": "memory" }
+        {
+          "refId": "A",
+          "expr": "apiary_memory_bytes",
+          "legendFormat": "memory"
+        }
       ]
     },
     {
@@ -85,41 +190,96 @@
       "type": "timeseries",
       "title": "attacks over time",
       "description": "sessions opened, the readiness dial excluded",
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
       "targets": [
-        { "refId": "A", "queryType": "range", "expr": "sum by (honeypot) (count_over_time({job=\"apiary\"} | json | src_ip != \"$internal\" | class = \"session.open\" [$__auto]))", "legendFormat": "{{honeypot}}" }
+        {
+          "refId": "A",
+          "queryType": "range",
+          "expr": "sum by (honeypot) (count_over_time({job=\"apiary\"} | json | src_ip != \"$internal\" | class = \"session.open\" [$__auto]))",
+          "legendFormat": "{{honeypot}}"
+        }
       ]
     },
     {
       "id": 7,
       "type": "stat",
       "title": "unique sources",
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 4, "x": 12, "y": 16 },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 4,
+        "x": 12,
+        "y": 16
+      },
       "targets": [
-        { "refId": "A", "queryType": "instant", "instant": true, "expr": "count(count by (src_ip) (count_over_time({job=\"apiary\"} | json | src_ip != \"$internal\" [$__range])))" }
+        {
+          "refId": "A",
+          "queryType": "instant",
+          "instant": true,
+          "expr": "count(count by (src_ip) (count_over_time({job=\"apiary\"} | json | src_ip != \"$internal\" [$__range])))"
+        }
       ]
     },
     {
       "id": 8,
       "type": "timeseries",
       "title": "credential attempts",
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 16
+      },
       "targets": [
-        { "refId": "A", "queryType": "range", "expr": "sum(count_over_time({job=\"apiary\"} | json | class = \"auth.attempt\" [$__auto]))", "legendFormat": "attempts" }
+        {
+          "refId": "A",
+          "queryType": "range",
+          "expr": "sum(count_over_time({job=\"apiary\"} | json | class = \"auth.attempt\" [$__auto]))",
+          "legendFormat": "attempts"
+        }
       ]
     },
     {
       "id": 9,
       "type": "logs",
       "title": "commands executed",
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 24 },
-      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending"
+      },
       "targets": [
-        { "refId": "A", "queryType": "range", "expr": "{job=\"apiary\"} | json | class = \"command.input\"" }
+        {
+          "refId": "A",
+          "queryType": "range",
+          "expr": "{job=\"apiary\"} | json | class = \"command.input\""
+        }
       ]
     },
     {
@@ -127,10 +287,47 @@
       "type": "timeseries",
       "title": "events by class",
       "description": "one query across both honeypot types",
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 33 },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
       "targets": [
-        { "refId": "A", "queryType": "range", "expr": "sum by (class) (count_over_time({job=\"apiary\"} | json [$__auto]))", "legendFormat": "{{class}}" }
+        {
+          "refId": "A",
+          "queryType": "range",
+          "expr": "sum by (class) (count_over_time({job=\"apiary\"} | json [$__auto]))",
+          "legendFormat": "{{class}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "attack techniques",
+      "description": "att&ck techniques across both honeypot types",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 41
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "range",
+          "expr": "sum by (technique) (count_over_time({job=\"apiary\"} | json | technique != \"\" [$__auto]))",
+          "legendFormat": "{{technique}}"
+        }
       ]
     }
   ]
