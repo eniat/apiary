@@ -51,7 +51,7 @@ every combination of label values is a stream, so labels stay bounded and anythi
 - loki keeps fourteen days, matching the rotated cowrie json
 - the archive is the record, loki a query layer over a copy. archive before destroy stays because continuous shipping is best effort
 - fluent bit buffers to the filesystem and pauses the input at its limit rather than discarding. the files are still on the host
-- log root and archive grow without bound and need the same prune
+- the log root is pruned on the retention window. the archive is not, it is the record so it goes only when you say so
 
 ## clock
 
