@@ -19,3 +19,22 @@
 - Host: `VBoxManage controlvm apiary-defender setlinkstate1 off`
 
 Containment demonstrated from the attacker and from a container on apiary-net, transcript in `docs/evidence/containment-battery.txt`. Egress allowlist testing comes once the rules are in place.
+**Escape vectors**
+
+Namespaces decide what a container sees, cgroups what it consumes, capabilities and seccomp and LSMs what it may do. The kernel is shared so a kernel bug is an escape, already accepted above.
+
+In place today: no socket mounted, no privileged flag, no gateway on either lab interface. The rest is planned and the test is what proves it.
+
+| vector | mitigation | test |
+|---|---|---|
+| docker socket mounted in | never mounted, two binds and neither is it | look for it inside, inspect the binds |
+| privileged container | never used | inspect reports privileged false |
+| excessive capabilities, CAP_SYS_ADMIN above all | drop all, add back only what cowrie needs | capsh print shows the reduced set, a privileged op fails |
+| writable host mounts | read only rootfs, writes only to the two binds and declared tmpfs | write outside them and it fails |
+| container root is host root | user namespace remapping | uid inside against the owner on the host |
+| exhausting host cpu memory pids io | cgroup limit on each | stress each from inside, host stays responsive |
+| pivot to another host or a third party | default deny egress in DOCKER-USER, narrow allowlist | a battery row per destination |
+| reaching the management interface | blocked explicitly, not hidden by topology | from a container, the host address on the lab segment |
+| poisoning the log pipeline through the log bind | collector mounts it read only on its own bridge, store unreachable from apiary-net, schema nests the original event | write a crafted line into a honeypot log, it arrives as a record without touching labels |
+| writing the redirect map | pins need CAP_BPF and bpffs, a honeypot has neither | attempt a map write from inside |
+| kernel exploit | none | not tested, accepted. disposable VM |
