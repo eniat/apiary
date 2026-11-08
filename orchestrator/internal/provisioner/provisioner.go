@@ -124,10 +124,13 @@ func (p *Provisioner) one(ctx context.Context) (*apiary.Honeypot, error) {
 
 	resp, err := p.cli.ContainerCreate(ctx,
 		&container.Config{Image: p.image},
-		&container.HostConfig{Binds: []string{
-			dir + ":" + apiary.CowrieLogDir,
-			state + ":" + apiary.CowrieStateDir,
-		}},
+		&container.HostConfig{
+			// cowrie runs as 999 so this empties the bounding set not the effective one
+			CapDrop: []string{"ALL"},
+			Binds: []string{
+				dir + ":" + apiary.CowrieLogDir,
+				state + ":" + apiary.CowrieStateDir,
+			}},
 		&dnet.NetworkingConfig{
 			EndpointsConfig: map[string]*dnet.EndpointSettings{p.network: {}},
 		},

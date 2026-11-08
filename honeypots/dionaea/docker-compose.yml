@@ -3,6 +3,15 @@ services:
     image: dinotools/dionaea:latest
     container_name: ap-dionaea
     restart: unless-stopped
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
     networks:
       - apiary-net
     ports:

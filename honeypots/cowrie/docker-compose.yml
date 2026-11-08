@@ -3,6 +3,8 @@ services:
     image: cowrie/cowrie:latest
     container_name: ap-cowrie
     restart: unless-stopped
+    cap_drop:
+      - ALL
     networks:
       - apiary-net
     ports:
