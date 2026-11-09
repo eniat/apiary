@@ -3,6 +3,9 @@ services:
     image: dinotools/dionaea:latest
     container_name: ap-dionaea
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /opt/dionaea/etc:rw,nosuid,size=8m
     cap_drop:
       - ALL
     cap_add:

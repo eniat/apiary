@@ -127,6 +127,8 @@ func (p *Provisioner) one(ctx context.Context) (*apiary.Honeypot, error) {
 		&container.HostConfig{
 			// cowrie runs as 999 so this empties the bounding set not the effective one
 			CapDrop: []string{"ALL"},
+			// docker diff shows cowrie writes nothing outside its binds
+			ReadonlyRootfs: true,
 			Binds: []string{
 				dir + ":" + apiary.CowrieLogDir,
 				state + ":" + apiary.CowrieStateDir,
