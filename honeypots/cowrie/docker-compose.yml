@@ -4,6 +4,8 @@ services:
     container_name: ap-cowrie
     restart: unless-stopped
     read_only: true
+    security_opt:
+      - seccomp:./seccomp.json
     cap_drop:
       - ALL
     networks:
