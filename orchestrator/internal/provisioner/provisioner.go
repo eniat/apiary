@@ -41,6 +41,9 @@ type Provisioner struct {
 	// seccomp profile json, empty leaves dockers default in place
 	Seccomp string
 
+	// apparmor profile name, it must already be loaded on the host
+	AppArmor string
+
 	// fires once a honeypot has an address but before it is ready. experiments only
 	OnInspect func(*apiary.Honeypot)
 
@@ -132,7 +135,7 @@ func (p *Provisioner) one(ctx context.Context) (*apiary.Honeypot, error) {
 			CapDrop: []string{"ALL"},
 			// docker diff shows cowrie writes nothing outside its binds
 			ReadonlyRootfs: true,
-			SecurityOpt:    securityOpt(p.Seccomp),
+			SecurityOpt:    securityOpt(p.Seccomp, p.AppArmor),
 			Binds: []string{
 				dir + ":" + apiary.CowrieLogDir,
 				state + ":" + apiary.CowrieStateDir,
@@ -274,9 +277,13 @@ func (p *Provisioner) LoadSeccomp(path string) error {
 	return nil
 }
 
-func securityOpt(profile string) []string {
-	if profile == "" {
-		return nil
+func securityOpt(profile, apparmor string) []string {
+	var opt []string
+	if profile != "" {
+		opt = append(opt, "seccomp="+profile)
 	}
-	return []string{"seccomp=" + profile}
+	if apparmor != "" {
+		opt = append(opt, "apparmor="+apparmor)
+	}
+	return opt
 }
