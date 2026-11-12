@@ -31,10 +31,12 @@ In place today: no socket mounted, no privileged flag, no gateway on either lab 
 | privileged container | never used | inspect reports privileged false |
 | excessive capabilities, CAP_SYS_ADMIN above all | drop all, add back only what cowrie needs | capsh print shows the reduced set, a privileged op fails |
 | writable host mounts | read only rootfs, writes only to the two binds and declared tmpfs | write outside them and it fails |
-| container root is host root | user namespace remapping | uid inside against the owner on the host |
+| container root is host root | not implemented, the attacker facing process already runs unprivileged | not tested, see the note below |
 | exhausting host cpu memory pids io | cgroup limit on each | stress each from inside, host stays responsive |
 | pivot to another host or a third party | default deny egress in DOCKER-USER, narrow allowlist | a battery row per destination |
 | reaching the management interface | blocked explicitly, not hidden by topology | from a container, the host address on the lab segment |
 | poisoning the log pipeline through the log bind | collector mounts it read only on its own bridge, store unreachable from apiary-net, schema nests the original event | write a crafted line into a honeypot log, it arrives as a record without touching labels |
 | writing the redirect map | pins need CAP_BPF and bpffs, a honeypot has neither | attempt a map write from inside |
 | kernel exploit | none | not tested, accepted. disposable VM |
+
+**On user namespace remapping.** Not implemented. It is daemon wide, so it relocates the image store and shifts the uid behind every bind mount. The provisioner's chown of each log directory would then land on the wrong owner and cowrie fails silently on every write, taking session counts, attribution and the archive with it. The process an attacker reaches already has an unprivileged uid, no capabilities, a read only rootfs, a seccomp allowlist and an apparmor profile, so remapping changes where a kernel escape lands rather than whether one is possible, and that risk is accepted above.
