@@ -6,6 +6,12 @@ services:
     read_only: true
     tmpfs:
       - /opt/dionaea/etc:rw,nosuid,size=8m
+    cpus: 0.5
+    mem_limit: 256m
+    memswap_limit: 256m
+    pids_limit: 128
+    blkio_config:
+      weight: 500
     cap_drop:
       - ALL
     cap_add:

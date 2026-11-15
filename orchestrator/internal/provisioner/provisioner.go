@@ -26,6 +26,9 @@ import (
 // cowrie writes as this uid and fails silently if it cannot
 const cowrieUID = 999
 
+// pointer because docker treats unset and zero differently
+var pidsLimit int64 = 128
+
 var ErrPoolEmpty = errors.New("warm pool empty")
 
 type Provisioner struct {
@@ -136,6 +139,14 @@ func (p *Provisioner) one(ctx context.Context) (*apiary.Honeypot, error) {
 			// docker diff shows cowrie writes nothing outside its binds
 			ReadonlyRootfs: true,
 			SecurityOpt:    securityOpt(p.Seccomp, p.AppArmor),
+			// one honeypot cannot take the host down with it
+			Resources: container.Resources{
+				NanoCPUs:    500000000,
+				Memory:      256 * 1024 * 1024,
+				MemorySwap:  256 * 1024 * 1024,
+				PidsLimit:   &pidsLimit,
+				BlkioWeight: 500,
+			},
 			Binds: []string{
 				dir + ":" + apiary.CowrieLogDir,
 				state + ":" + apiary.CowrieStateDir,
