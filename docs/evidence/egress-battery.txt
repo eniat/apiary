@@ -1,0 +1,74 @@
+# egress battery, 2026-11-18T18:54:02Z, from ap-hp-28af0848, nat cable disconnected
+
+## rules before
+Chain DOCKER-USER (1 references)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 ACCEPT     all  --  *      *       10.10.10.0/24        172.30.0.0/16       
+    0     0 ACCEPT     all  --  *      *       172.30.0.0/16        0.0.0.0/0            ctstate RELATED,ESTABLISHED
+    0     0 DROP       all  --  *      *       172.30.0.0/16        0.0.0.0/0           
+Chain INPUT (policy ACCEPT 21 packets, 1120 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+   92  3724 ACCEPT     all  --  *      *       172.30.0.0/16        0.0.0.0/0            ctstate RELATED,ESTABLISHED
+    0     0 DROP       all  --  *      *       172.30.0.0/16        0.0.0.0/0           
+
+## attempts
+own loopback             127.0.0.1:2222         OPEN
+internet address         8.8.8.8:53             OSError
+internet address         1.1.1.1:443            OSError
+internet by name         example.com:80         gaierror
+rfc1918 ten              10.0.0.1:22            TimeoutError
+rfc1918 one seven two    172.16.0.1:22          TimeoutError
+rfc1918 one nine two     192.168.1.1:80         TimeoutError
+bridge gateway           172.30.0.1:22          TimeoutError
+defender lab address     10.10.10.10:22         TimeoutError
+host on the lab segment  10.10.10.1:445         TimeoutError
+attacker                 10.10.10.20:22         TimeoutError
+another container        172.30.0.3:445         OPEN
+
+## rules after
+Chain DOCKER-USER (1 references)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 ACCEPT     all  --  *      *       10.10.10.0/24        172.30.0.0/16       
+    0     0 ACCEPT     all  --  *      *       172.30.0.0/16        0.0.0.0/0            ctstate RELATED,ESTABLISHED
+    6   360 DROP       all  --  *      *       172.30.0.0/16        0.0.0.0/0           
+Chain INPUT (policy ACCEPT 38 packets, 1900 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+   92  3724 ACCEPT     all  --  *      *       172.30.0.0/16        0.0.0.0/0            ctstate RELATED,ESTABLISHED
+    6   360 DROP       all  --  *      *       172.30.0.0/16        0.0.0.0/0           
+# egress battery, 2026-11-18T18:57:06Z, from ap-hp-28af0848, nat cable connected
+
+## rules before
+Chain DOCKER-USER (1 references)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 ACCEPT     all  --  *      *       10.10.10.0/24        172.30.0.0/16       
+    0     0 ACCEPT     all  --  *      *       172.30.0.0/16        0.0.0.0/0            ctstate RELATED,ESTABLISHED
+    6   360 DROP       all  --  *      *       172.30.0.0/16        0.0.0.0/0           
+Chain INPUT (policy ACCEPT 153 packets, 10420 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+   92  3724 ACCEPT     all  --  *      *       172.30.0.0/16        0.0.0.0/0            ctstate RELATED,ESTABLISHED
+    6   360 DROP       all  --  *      *       172.30.0.0/16        0.0.0.0/0           
+
+## attempts
+own loopback             127.0.0.1:2222         OPEN
+internet address         8.8.8.8:53             TimeoutError
+internet address         1.1.1.1:443            TimeoutError
+internet by name         example.com:80         gaierror
+rfc1918 ten              10.0.0.1:22            TimeoutError
+rfc1918 one seven two    172.16.0.1:22          TimeoutError
+rfc1918 one nine two     192.168.1.1:80         TimeoutError
+bridge gateway           172.30.0.1:22          TimeoutError
+defender lab address     10.10.10.10:22         TimeoutError
+host on the lab segment  10.10.10.1:445         TimeoutError
+attacker                 10.10.10.20:22         TimeoutError
+another container        172.30.0.3:445         OPEN
+
+## rules after
+Chain DOCKER-USER (1 references)
+ pkts bytes target     prot opt in     out     source               destination         
+    0     0 ACCEPT     all  --  *      *       10.10.10.0/24        172.30.0.0/16       
+    0     0 ACCEPT     all  --  *      *       172.30.0.0/16        0.0.0.0/0            ctstate RELATED,ESTABLISHED
+   27  1620 DROP       all  --  *      *       172.30.0.0/16        0.0.0.0/0           
+Chain INPUT (policy ACCEPT 191 packets, 15596 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+   92  3724 ACCEPT     all  --  *      *       172.30.0.0/16        0.0.0.0/0            ctstate RELATED,ESTABLISHED
+   12   720 DROP       all  --  *      *       172.30.0.0/16        0.0.0.0/0           
