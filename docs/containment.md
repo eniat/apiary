@@ -40,3 +40,25 @@ Destinations off the box traverse DOCKER-USER, the defender's own addresses trav
 Name resolution fails in both cable states, so docker's embedded resolver is not an egress path around the rules.
 
 The one success is honeypot to honeypot on the shared bridge, which 0002 records and explains.
+
+## escape attempts from inside a honeypot
+
+Driven by `scripts/test-escape.sh`, transcript in `docs/evidence/escape-battery.txt`. One row per vector in 0002.
+
+| vector | attempt | expected | result |
+|---|---|---|---|
+| docker socket | look for /var/run/docker.sock | absent | absent |
+| capabilities | read CapEff | empty | 0000000000000000 |
+| writable rootfs | write a world writable path on the rootfs | refused | read only filesystem |
+| redirect map | look for the pinned bpf map | not visible | not visible |
+| raw sockets | open AF_PACKET SOCK_RAW | refused | permission denied |
+| seccomp | call a syscall the profile omits | refused | EPERM |
+| mount | mount proc inside | refused | EPERM |
+| docker api | connect to the bridge gateway on 2375 | refused | timed out |
+| kernel exploit | not attempted | accepted | accepted, the VM is the boundary |
+
+Every probe runs through `docker exec`, which enters the same confinement but is not the path an attacker takes. Cowrie's emulated shell cannot execute a real binary, so this measures the container the honeypot runs in rather than what someone typing into the fake shell can reach.
+
+With capabilities, seccomp and apparmor layered, several refusals cannot be attributed to a single control. The raw socket is the clearest: it needs CAP_NET_RAW, which is absent, and the apparmor profile also omits raw sockets.
+
+The write probe targets a world writable path rather than a root owned one, so it exercises the read only mount and not file ownership. Pointed at a root owned file it returns EACCES and proves nothing about the mount.

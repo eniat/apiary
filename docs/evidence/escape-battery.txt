@@ -1,0 +1,17 @@
+# escape battery, 2026-11-19T18:49:40Z, from ap-hp-ed629783
+
+## attempts from inside
+docker socket              contained absent
+effective capabilities     contained 0000000000000000
+write rootfs               contained OSError
+bpf redirect pin           contained not visible
+raw packet socket          contained PermissionError
+seccomp blocks times       contained errno 1
+mount inside               contained errno 1
+docker api on gateway      contained TimeoutError
+
+## host side
+uid the honeypot runs as:
+  999:999
+containers outside the lab naming scheme:
+  none
