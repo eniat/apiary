@@ -19,3 +19,26 @@
 - Host: `VBoxManage controlvm apiary-defender setlinkstate1 off`
 
 Containment demonstrated from the attacker and from a container on apiary-net, transcript in `docs/evidence/containment-battery.txt`. Egress allowlist testing comes once the rules are in place.
+**Escape vectors**
+
+Namespaces decide what a container sees, cgroups what it consumes, capabilities and seccomp and LSMs what it may do. The kernel is shared so a kernel bug is an escape, already accepted above.
+
+In place today: no socket mounted, no privileged flag, no gateway on either lab interface. The rest is planned and the test is what proves it.
+
+| vector | mitigation | test |
+|---|---|---|
+| docker socket mounted in | never mounted, two binds and neither is it | look for it inside, inspect the binds |
+| privileged container | never used | inspect reports privileged false |
+| excessive capabilities, CAP_SYS_ADMIN above all | drop all, add back only what cowrie needs | capsh print shows the reduced set, a privileged op fails |
+| writable host mounts | read only rootfs, writes only to the two binds and declared tmpfs | write outside them and it fails |
+| container root is host root | not implemented, the attacker facing process already runs unprivileged | not tested, see the note below |
+| exhausting host cpu memory pids io | cgroup limit on each | stress each from inside, host stays responsive |
+| pivot to another host or a third party | default deny egress in DOCKER-USER, narrow allowlist | a battery row per destination |
+| reaching the management interface | blocked explicitly, not hidden by topology | from a container, the host address on the lab segment |
+| poisoning the log pipeline through the log bind | collector mounts it read only on its own bridge, store unreachable from apiary-net, schema nests the original event | write a crafted line into a honeypot log, it arrives as a record without touching labels |
+| writing the redirect map | pins need CAP_BPF and bpffs, a honeypot has neither | attempt a map write from inside |
+| kernel exploit | none | not tested, accepted. disposable VM |
+
+**On user namespace remapping.** Not implemented. It is daemon wide, so it relocates the image store and shifts the uid behind every bind mount. The provisioner's chown of each log directory would then land on the wrong owner and cowrie fails silently on every write, taking session counts, attribution and the archive with it. The process an attacker reaches already has an unprivileged uid, no capabilities, a read only rootfs, a seccomp allowlist and an apparmor profile, so remapping changes where a kernel escape lands rather than whether one is possible, and that risk is accepted above.
+
+**On container to container traffic.** Not filtered. Same bridge traffic never reaches iptables unless `br_netfilter` is loaded, and loading it breaks the kernel redirect: with the module on a redirected connection gets no banner back and the data plane's own test fails, with it off the test passes. The redirect is the point of the project, so the module stays out and a honeypot can reach another honeypot on the bridge. Everything off the bridge is dropped, internet, RFC1918, the host and the attacker alike.

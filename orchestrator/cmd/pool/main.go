@@ -15,6 +15,8 @@ func main() {
 	n := flag.Int("n", 3, "honeypots to create")
 	logs := flag.String("logs", "/var/lib/apiary/logs", "host log root")
 	keep := flag.Bool("keep", false, "leave the pool running")
+	seccomp := flag.String("seccomp", "", "seccomp profile path, empty leaves dockers default")
+	aa := flag.String("apparmor", "", "apparmor profile name already loaded on the host")
 	img := flag.String("image", "cowrie/cowrie:latest", "honeypot image")
 	flag.Parse()
 
@@ -26,6 +28,12 @@ func main() {
 
 	ctx := context.Background()
 	p := provisioner.New(cli, *img, "apiary-net", *logs)
+	p.AppArmor = *aa
+	if *seccomp != "" {
+		if err := p.LoadSeccomp(*seccomp); err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	start := time.Now()
 	if _, err := p.Create(ctx, *n); err != nil {

@@ -1,0 +1,3 @@
+# nmap -sT -p 1-1000,2222 -T4 --max-retries 1 -oG - 172.30.0.4
+Host: 172.30.0.4 ()	Status: Up
+Host: 172.30.0.4 ()	Ports: 2222/open/tcp//EtherNetIP-1///	Ignored State: closed (1000)

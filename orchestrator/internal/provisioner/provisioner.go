@@ -26,6 +26,9 @@ import (
 // cowrie writes as this uid and fails silently if it cannot
 const cowrieUID = 999
 
+// pointer because docker treats unset and zero differently
+var pidsLimit int64 = 128
+
 var ErrPoolEmpty = errors.New("warm pool empty")
 
 type Provisioner struct {
@@ -37,6 +40,12 @@ type Provisioner struct {
 	readyTimeout time.Duration
 	readyBackoff time.Duration
 	drainTimeout time.Duration
+
+	// seccomp profile json, empty leaves dockers default in place
+	Seccomp string
+
+	// apparmor profile name, it must already be loaded on the host
+	AppArmor string
 
 	// fires once a honeypot has an address but before it is ready. experiments only
 	OnInspect func(*apiary.Honeypot)
@@ -124,10 +133,24 @@ func (p *Provisioner) one(ctx context.Context) (*apiary.Honeypot, error) {
 
 	resp, err := p.cli.ContainerCreate(ctx,
 		&container.Config{Image: p.image},
-		&container.HostConfig{Binds: []string{
-			dir + ":" + apiary.CowrieLogDir,
-			state + ":" + apiary.CowrieStateDir,
-		}},
+		&container.HostConfig{
+			// cowrie runs as 999 so this empties the bounding set not the effective one
+			CapDrop: []string{"ALL"},
+			// docker diff shows cowrie writes nothing outside its binds
+			ReadonlyRootfs: true,
+			SecurityOpt:    securityOpt(p.Seccomp, p.AppArmor),
+			// one honeypot cannot take the host down with it
+			Resources: container.Resources{
+				NanoCPUs:    500000000,
+				Memory:      256 * 1024 * 1024,
+				MemorySwap:  256 * 1024 * 1024,
+				PidsLimit:   &pidsLimit,
+				BlkioWeight: 500,
+			},
+			Binds: []string{
+				dir + ":" + apiary.CowrieLogDir,
+				state + ":" + apiary.CowrieStateDir,
+			}},
 		&dnet.NetworkingConfig{
 			EndpointsConfig: map[string]*dnet.EndpointSettings{p.network: {}},
 		},
@@ -253,4 +276,25 @@ func potName() (string, error) {
 		return "", err
 	}
 	return "ap-hp-" + hex.EncodeToString(b), nil
+}
+
+// LoadSeccomp reads a profile for ContainerCreate which takes json not a path
+func (p *Provisioner) LoadSeccomp(path string) error {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	p.Seccomp = string(b)
+	return nil
+}
+
+func securityOpt(profile, apparmor string) []string {
+	var opt []string
+	if profile != "" {
+		opt = append(opt, "seccomp="+profile)
+	}
+	if apparmor != "" {
+		opt = append(opt, "apparmor="+apparmor)
+	}
+	return opt
 }

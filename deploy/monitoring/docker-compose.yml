@@ -1,0 +1,79 @@
+services:
+  loki:
+    image: grafana/loki:latest
+    container_name: mon-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki.yaml
+    networks:
+      - apiary-mon
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./loki.yaml:/etc/loki/loki.yaml:ro
+      - loki-data:/loki
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mon-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=14d
+    networks:
+      - apiary-mon
+    ports:
+      - "127.0.0.1:9090:9090"
+    # the orchestrator is a host process not a container
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom-data:/prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mon-grafana
+    restart: unless-stopped
+    networks:
+      - apiary-mon
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      # nothing in the lab calls out, and plugin updates cost three minutes of startup
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_PLUGINS_PUBLIC_KEY_RETRIEVAL_DISABLED: "true"
+    extra_hosts:
+      - "grafana.com:127.0.0.1"
+    volumes:
+      - ./grafana:/etc/grafana/provisioning/datasources:ro
+      - ./dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana-data:/var/lib/grafana
+
+  collector:
+    image: fluent/fluent-bit:latest
+    container_name: mon-collector
+    restart: unless-stopped
+    command: /fluent-bit/bin/fluent-bit -c /etc/apiary/fluent-bit.conf
+    depends_on:
+      - loki
+    networks:
+      - apiary-mon
+    volumes:
+      - /var/lib/apiary/logs:/var/lib/apiary/logs:ro
+      - ../../honeypots/cowrie/data/log:/var/lib/apiary/static/ap-cowrie/log:ro
+      - /var/lib/apiary/flb:/var/lib/apiary/flb
+      - ./:/etc/apiary:ro
+
+networks:
+  apiary-mon:
+    name: apiary-mon
+
+volumes:
+  loki-data:
+  prom-data:
+  grafana-data:

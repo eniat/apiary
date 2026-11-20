@@ -19,6 +19,7 @@ import (
 	"github.com/eniat/apiary/orchestrator/internal/provisioner"
 	"github.com/eniat/apiary/orchestrator/internal/reaper"
 	"github.com/eniat/apiary/orchestrator/internal/registrar"
+	"github.com/eniat/apiary/orchestrator/internal/telemetry"
 )
 
 func main() {
@@ -38,6 +39,7 @@ func main() {
 	archive := flag.String("archive", "/var/lib/apiary/archive", "durable log archive root")
 	csvPath := flag.String("csv", "", "write one row per tick to this path")
 	ticks := flag.Int("ticks", 0, "stop after n ticks, zero runs until ctrl-c")
+	metricsAddr := flag.String("metrics", "127.0.0.1:9101", "prometheus listen address, empty disables")
 	cold := flag.Bool("cold", false, "create on demand instead of promoting from the pool")
 	flag.Parse()
 
@@ -100,6 +102,15 @@ func main() {
 
 	l.Cold = *cold
 
+	tel := telemetry.New()
+	if *metricsAddr != "" {
+		srv, err := tel.Serve(*metricsAddr)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer srv.Close()
+	}
+
 	n := 0
 	err = l.Run(ctx, *every, func(res loop.Result) {
 		s := res.Snapshot
@@ -118,6 +129,7 @@ func main() {
 			// flushed every tick so a ctrl-c keeps the run
 			rows.Flush()
 		}
+		tel.Observe(res)
 		n++
 		if *ticks > 0 && n >= *ticks {
 			stop()

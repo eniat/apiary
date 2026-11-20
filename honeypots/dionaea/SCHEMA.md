@@ -32,3 +32,5 @@ Cowrie emits an ordered event stream keyed by session, read as a narrative of wh
 ## constraints
 
 `log_json` crash-loops the container when enabled, so sqlite is the only structured source. `bistreams` is not created at runtime and must exist beforehand.
+
+**Several enabled services cannot serve.** `http`, `tftp`, `ftp` and `printer` all log their root directory as not a directory at start, because those paths are absent from the bind mounted `var/lib`. They answer a connection and then do nothing, which a scanner sees as a service that negotiates and stalls.
