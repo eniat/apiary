@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# synthetic attack load in named shapes
+# synthetic load shapes
 set -euo pipefail
-[[ $EUID -eq 0 ]] || { echo "run with sudo"; exit 1; }
 
 ATTACKER="${ATTACKER:-10.10.10.20}"
 ATTACKER_USER="${ATTACKER_USER:-apiary}"
@@ -12,11 +11,14 @@ TICK="${TICK:-5}"
 ROUNDS="${ROUNDS:-24}"
 SEED="${SEED:-7}"
 PEAK="${PEAK:-5}"
+LOW="${LOW:-0}"
+PERIOD="${PERIOD:-1}"
 PROFILE="${PROFILE:-threshold}"
+DRY="${DRY:-0}"
 
 remote() { sudo -u "${SUDO_USER:-$USER}" ssh -o BatchMode=yes -o ConnectTimeout=10 "$ATTACKER_USER@$ATTACKER" "$1"; }
 
-# the shape is built here so the run is visible and repeatable
+# shape built locally so runs repeat
 RANDOM="$SEED"
 half=$(( ROUNDS / 2 ))
 shape=""
@@ -29,22 +31,33 @@ for (( i = 1; i <= ROUNDS; i++ )); do
     spike)
       if (( i > ROUNDS / 3 && i <= 2 * ROUNDS / 3 )); then n=$PEAK; else n=0; fi
       ;;
+    step)
+      if (( i > ROUNDS / 3 )); then n=$PEAK; else n=0; fi
+      ;;
+    sustained) n=$PEAK ;;
+    oscillating)
+      if (( (i - 1) / PERIOD % 2 == 0 )); then n=$PEAK; else n=$LOW; fi
+      ;;
     quiet) n=0 ;;
-    *) echo "unknown profile $PROFILE, want threshold ramp spike or quiet"; exit 1 ;;
+    *) echo "unknown profile $PROFILE, want threshold ramp spike step sustained oscillating or quiet"; exit 1 ;;
   esac
   shape="$shape $n"
 done
 
 echo "profile $PROFILE rounds $ROUNDS tick ${TICK}s"
 echo "syns per round:$shape"
+[[ "$DRY" == 1 ]] && exit 0
 
-# one dark touch flags the source. every syn after it counts as unserved
+[[ $EUID -eq 0 ]] || { echo "run with sudo"; exit 1; }
+
+# dark touch flags the source
 remote "timeout 2 bash -c 'exec 3<>/dev/tcp/$DARK/$PORT' || true" >/dev/null 2>&1
 echo "flagged $ATTACKER"
 
-# the whole loop runs on the attacker. an ssh hop per round would swamp the tick
+# single hop with background sends to hold the period
 remote "for n in$shape; do
-  for _ in \$(seq 1 \$n); do timeout 1 bash -c 'exec 3<>/dev/tcp/$TARGET/$PORT' || true; done
-  echo \"sent \$n\"
+  ( for _ in \$(seq 1 \$n); do timeout 1 bash -c 'exec 3<>/dev/tcp/$TARGET/$PORT' || true; done ) &
+  echo \"\$(date +%T.%3N) sending \$n\"
   sleep $TICK
-done"
+done
+wait"

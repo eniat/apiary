@@ -1,0 +1,14 @@
+profile threshold rounds 24 tick 5s
+syns per round: 1 1 2 3 2 3 3 2 4 2 1 4 3 1 4 1 1 3 1 1 3 3 3 3
+profile ramp rounds 24 tick 5s
+syns per round: 0 0 1 1 2 2 2 3 3 4 4 5 4 4 3 3 2 2 2 1 1 0 0 0
+profile spike rounds 24 tick 5s
+syns per round: 0 0 0 0 0 0 0 0 5 5 5 5 5 5 5 5 0 0 0 0 0 0 0 0
+profile step rounds 24 tick 5s
+syns per round: 0 0 0 0 0 0 0 0 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5
+profile sustained rounds 24 tick 5s
+syns per round: 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5
+profile oscillating rounds 24 tick 5s
+syns per round: 5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0
+profile quiet rounds 24 tick 5s
+syns per round: 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0

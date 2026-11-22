@@ -1,0 +1,11 @@
+profile oscillating rounds 8 tick 5s
+syns per round: 5 0 5 0 5 0 5 0
+flagged 10.10.10.20
+12:15:02.722586137 sending 5
+12:15:07.863573528 sending 0
+12:15:13.9306768 sending 5
+12:15:18.138558807 sending 0
+12:15:23.274490870 sending 5
+12:15:28.509638979 sending 0
+12:15:33.640656784 sending 5
+12:15:38.748340295 sending 0
