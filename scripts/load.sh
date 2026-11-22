@@ -51,13 +51,20 @@ echo "syns per round:$shape"
 [[ $EUID -eq 0 ]] || { echo "run with sudo"; exit 1; }
 
 # dark touch flags the source
-remote "timeout 2 bash -c 'exec 3<>/dev/tcp/$DARK/$PORT' || true" >/dev/null 2>&1
+remote "timeout 0.5 bash -c 'exec 3<>/dev/tcp/$DARK/$PORT' || true" >/dev/null 2>&1
 echo "flagged $ATTACKER"
 
-# single hop with background sends to hold the period
-remote "for n in$shape; do
+# one hop with rounds on fixed deadlines
+remote "bash -s" <<EOF
+t0=\${EPOCHREALTIME/./}
+i=0
+for n in$shape; do
+  echo "\$(( (\${EPOCHREALTIME/./} - t0) / 1000 ))ms sending \$n"
   ( for _ in \$(seq 1 \$n); do timeout 1 bash -c 'exec 3<>/dev/tcp/$TARGET/$PORT' || true; done ) &
-  echo \"\$(date +%T.%3N) sending \$n\"
-  sleep $TICK
+  i=\$(( i + 1 ))
+  d=\$(( t0 + i * $TICK * 1000000 - \${EPOCHREALTIME/./} ))
+  printf -v f %06d \$(( d % 1000000 ))
+  (( d > 0 )) && sleep \$(( d / 1000000 )).\$f
 done
-wait"
+wait
+EOF
