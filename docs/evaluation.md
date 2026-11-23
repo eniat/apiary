@@ -65,6 +65,7 @@ Adds to the fidelity side channel: a flagged source meets this delay once, on it
 ## cold start
 
 Twenty samples of container create through to a TCP connection the honeypot accepts, taken in three batches on an otherwise idle defender.
+Taken before hardening, see scalability.
 
 | batch | n | min | median | mean | max | sd |
 |-------|----|-------|--------|-------|--------|-------|
@@ -271,3 +272,69 @@ Live honeypots per tick, band plus a 30 second cooldown on scale down.
 
 - Two of those gaps are the same gap. The decoy absorbs anything the redirect does not claim, so a slow or missing scale up mis-serves an attacker here rather than dropping one
 - Closing the first row means moving registration into the loop, which is a design change rather than a fix
+
+## scalability
+
+Hardened honeypots, monitoring stack stopped unless stated. Raw output in `docs/evidence/`.
+
+### trigger to ready
+
+| path | n | median | range |
+|---|---|---|---|
+| create, stack down | 20 | 4.02 s | 3.13 to 5.31 s |
+| create, stack up | 8 of 9 | 17.14 s | 12.18 to 21.00 s |
+| create on the tick | 8 | 3.90 s | 2.98 to 4.80 s |
+| promote on the tick | 8 | 2 µs | 1 to 2 µs |
+
+- `cmd/coldstart` and the orchestrate `took_us` column
+- Hardening did not slow a create, mean 3.97 s against 6.27 s before
+- Stack up: one sample missed the 60 s timeout. Grafana at 273 to 307% CPU still loading plugins, soon after boot
+
+### step response
+
+`PROFILE=step ROUNDS=12`, 5 s tick.
+
+| run | ups | peak live | back to 1 |
+|---|---|---|---|
+| warm pool | 8 | 9 | 270 s |
+| create on demand | 8 | 9 | 260 s |
+
+- First up on the first loaded tick
+- Up never converges. Nothing binds the attacker so the fleet grows a honeypot a tick
+- Down converges at one per cooldown, about 33 s a honeypot
+- Two ticks dropped during a warm run scale down
+
+### max concurrent
+
+`cmd/pool -n 5 -keep` until a create failed or free memory fell under 1 GiB.
+
+- 80 ran, the next batch missed the readiness timeout
+- Churn binds, not memory. Load 240 and 43% CPU pressure in `/proc/pressure`, docker hung, VM reset
+- 80 idle: load 11.9, 0.4% CPU pressure
+- Memory alone allows about 208
+
+### per instance
+
+| measure | value |
+|---|---|
+| memory idle | 42.2 MiB, 46.5 MiB host side |
+| cpu idle | 0 |
+| cpu per attack session | 40 ms |
+
+- `docker stats` across 10, the ap-cowrie cgroup `usage_usec` over one `creds.sh` run
+- About 12 sessions a second per honeypot at the 0.5 CPU cap, derived
+
+### redirect latency
+
+TCP connect time from the attacker, 4 runs of 200 each way. `scripts/connect-timing.sh`
+
+| path | run medians |
+|---|---|
+| direct | 2445 to 2544 µs |
+| redirect | 2501 to 2536 µs |
+
+- 15 µs apart, inside the 99 µs spread between direct runs. Not resolvable
+
+### throughput
+
+Not measured. Honeypot traffic is handshakes and short shells, a bulk figure would measure VirtualBox.
