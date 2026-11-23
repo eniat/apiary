@@ -103,7 +103,7 @@ func main() {
 		defer f.Close()
 		rows = csv.NewWriter(f)
 		defer rows.Flush()
-		if err := rows.Write([]string{"time", "live", "warm", "sessions", "unserved", "action", "promoted", "refilled", "reaped"}); err != nil {
+		if err := rows.Write([]string{"time", "live", "warm", "sessions", "unserved", "action", "promoted", "refilled", "reaped", "took_us"}); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -132,7 +132,7 @@ func main() {
 			_ = rows.Write([]string{
 				s.Now.Format(time.RFC3339), strconv.Itoa(s.Live), strconv.Itoa(s.Warm),
 				strconv.Itoa(s.Sessions), strconv.Itoa(s.Unserved), res.Action.String(),
-				res.Promoted, strconv.Itoa(res.Refilled), strconv.Itoa(res.Reaped),
+				res.Promoted, strconv.Itoa(res.Refilled), strconv.Itoa(res.Reaped), strconv.FormatInt(res.Took.Microseconds(), 10),
 			})
 			// flushed every tick so a ctrl-c keeps the run
 			rows.Flush()
