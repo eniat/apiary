@@ -41,6 +41,8 @@ func main() {
 	ticks := flag.Int("ticks", 0, "stop after n ticks, zero runs until ctrl-c")
 	metricsAddr := flag.String("metrics", "127.0.0.1:9101", "prometheus listen address, empty disables")
 	cold := flag.Bool("cold", false, "create on demand instead of promoting from the pool")
+	seccomp := flag.String("seccomp", "", "seccomp profile path, empty leaves dockers default")
+	aa := flag.String("apparmor", "", "apparmor profile name already loaded on the host")
 	flag.Parse()
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -54,6 +56,12 @@ func main() {
 	defer stop()
 
 	p := provisioner.New(cli, "cowrie/cowrie:latest", "apiary-net", *logs)
+	p.AppArmor = *aa
+	if *seccomp != "" {
+		if err := p.LoadSeccomp(*seccomp); err != nil {
+			log.Fatal(err)
+		}
+	}
 	if _, err := p.Create(ctx, *warm+1); err != nil {
 		log.Fatal(err)
 	}

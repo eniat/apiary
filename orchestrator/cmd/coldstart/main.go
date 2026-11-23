@@ -21,6 +21,8 @@ func main() {
 	logs := flag.String("logs", "/var/lib/apiary/logs", "host log root")
 	pin := flag.String("pin", registrar.RedirectPin, "pinned redirect map")
 	hold := flag.Duration("hold", 0, "pause after each honeypot is ready")
+	seccomp := flag.String("seccomp", "", "seccomp profile path, empty leaves dockers default")
+	aa := flag.String("apparmor", "", "apparmor profile name already loaded on the host")
 	flag.Parse()
 
 	ip := net.ParseIP(*src)
@@ -36,6 +38,12 @@ func main() {
 
 	ctx := context.Background()
 	p := provisioner.New(cli, "cowrie/cowrie:latest", "apiary-net", *logs)
+	p.AppArmor = *aa
+	if *seccomp != "" {
+		if err := p.LoadSeccomp(*seccomp); err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	var reg *registrar.Registrar
 	if *early {
