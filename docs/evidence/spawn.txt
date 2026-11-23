@@ -1,0 +1,27 @@
+start 10694 MiB available
+5 running 10478 MiB available load 1.90 created 5 ready in 6.994s
+10 running 10251 MiB available load 3.23 created 5 ready in 11.439s
+15 running 10020 MiB available load 3.19 created 5 ready in 18.592s
+20 running 9788 MiB available load 4.98 created 5 ready in 17.12s
+25 running 9555 MiB available load 4.31 created 5 ready in 19.748s
+30 running 9319 MiB available load 4.76 created 5 ready in 15.08s
+35 running 9076 MiB available load 5.42 created 5 ready in 14.51s
+40 running 8832 MiB available load 5.33 created 5 ready in 8.784s
+45 running 8616 MiB available load 4.35 created 5 ready in 12.425s
+50 running 8360 MiB available load 4.27 created 5 ready in 10.911s
+55 running 8139 MiB available load 5.61 created 5 ready in 20.578s
+60 running 7904 MiB available load 5.62 created 5 ready in 22.656s
+65 running 7669 MiB available load 5.62 created 5 ready in 21.659s
+70 running 7448 MiB available load 5.92 created 5 ready in 19.149s
+75 running 7211 MiB available load 6.00 created 5 ready in 31.926s
+80 running 6977 MiB available load 6.39 created 5 ready in 22.89s
+2026/11/23 19:19:11 honeypot 0: 172.30.0.88:2222 not ready in 1m0s: dial tcp 172.30.0.88:2222: connect: connection refused
+80 idle
+ 19:22:17 up 36 min,  3 users,  load average: 11.89, 116.41, 94.02
+some avg10=0.36 avg60=1.39 avg300=5.46 total=501001093
+full avg10=0.00 avg60=0.00 avg300=0.00 total=0
+some avg10=0.00 avg60=0.10 avg300=0.43 total=45846813
+full avg10=0.00 avg60=0.01 avg300=0.06 total=16179565
+some avg10=0.00 avg60=0.00 avg300=0.00 total=55244
+full avg10=0.00 avg60=0.00 avg300=0.00 total=21688
+docker stats across 80 never returned, docker ps and ps hung, recovered by VirtualBox reset

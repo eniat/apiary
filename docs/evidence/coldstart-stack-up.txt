@@ -1,0 +1,18 @@
+18:51:17.643 create 1
+18:51:38.643 ready 172.30.0.4 after 20.999s
+18:51:40.166 create 2
+18:51:58.145 ready 172.30.0.4 after 17.979s
+18:52:01.761 create 3
+18:52:18.714 ready 172.30.0.4 after 16.953s
+18:52:21.721 create 4
+18:52:33.899 ready 172.30.0.4 after 12.178s
+18:52:35.110 create 5
+18:52:50.859 ready 172.30.0.4 after 15.748s
+18:52:54.306 create 6
+18:53:10.627 ready 172.30.0.4 after 16.321s
+18:53:13.253 create 7
+18:53:30.576 ready 172.30.0.4 after 17.323s
+18:53:34.787 create 8
+18:53:53.494 ready 172.30.0.4 after 18.706s
+18:53:57.539 create 9
+2026/11/23 18:57:34 honeypot 0: 172.30.0.4:2222 not ready in 1m0s: dial tcp 172.30.0.4:2222: connect: connection refused

