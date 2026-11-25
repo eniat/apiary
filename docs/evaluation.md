@@ -338,3 +338,23 @@ TCP connect time from the attacker, 4 runs of 200 each way. `scripts/connect-tim
 ### throughput
 
 Not measured. Honeypot traffic is handshakes and short shells, a bulk figure would measure VirtualBox.
+
+## fidelity
+
+Cowrie against the defender's own sshd, probed from the attacker. Raw output in `docs/evidence/fidelity-*.txt` and `affinity.txt`.
+
+| vector | tells | evidence |
+|---|---|---|
+| banner | no | claims OpenSSH 9.2p1 Debian 12, matching its `uname`, `debian_version` and `ssh -V` |
+| offered algorithms | yes | offers CBC, 3DES, CAST, HMAC-MD5, plain zlib, group14-sha1 and SHA-1 `ssh-rsa`. Lacks chacha20, GCM, etm MACs, sntrup761 and strict kex. No OpenSSH 9.2 offers that set |
+| auth methods | no | publickey and password on both |
+| garbage first line | no | both reply `Invalid SSH identification string.` |
+| recon commands | yes | `ip`, `ss`, `systemctl`, `journalctl` not found. `df`, `lsblk` exec format error. `/etc/os-release` empty |
+| state across logins | yes | a file written in one login is gone at the next |
+| host key at the handoff | yes | the decoy address shows ap-cowrie's key, then the bound honeypot's once redirected |
+| affinity | no | same key and every session on one honeypot across a scale up and a scale down |
+| redirect latency | no | 15 µs against a 99 µs run spread, see scalability |
+
+- Only tells no OpenSSH release would show count. The baseline is OpenSSH 10.2p1, newer than the claim
+- Algorithms: config can drop the legacy set but cant add what Twisted lacks, so it narrows the tell without closing it
+- Host key: each honeypot generates its own. A source that touched the decoy before being flagged meets a changed key after, and stock ssh refuses to connect. One key set shared across the fleet would close it
