@@ -1,0 +1,27 @@
+== uname -a
+Linux web-03 6.1.0-21-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.1.90-1 (2024-05-03) x86_64 GNU/Linux
+== cat /etc/os-release
+== cat /etc/debian_version
+12.5
+== nproc
+2
+== free -m
+              total        used        free      shared  buff/cache   available
+Mem:          11718         475        8763          18        2480       11012
+Swap:          4194           0        4194
+== df -h /
+bash: line 1: /usr/bin/df: cannot execute binary file: Exec format error
+== ip addr
+bash: line 1: ip: command not found
+== ss -tln
+bash: line 1: ss: command not found
+== lsblk
+bash: line 1: /usr/bin/lsblk: cannot execute binary file: Exec format error
+== systemctl is-system-running
+bash: line 1: systemctl: command not found
+== journalctl -n 1
+bash: line 1: journalctl: command not found
+== ssh -V
+OpenSSH_9.2p1, OpenSSL 3.0.11 19 Sep 2023
+== state
+cat: /tmp/apiary-probe: No such file or directory

@@ -1,0 +1,9 @@
+decoy ap-cowrie 172.30.0.3
+bound 10.10.10.20 to ap-hp-375a593b
+PASS first key seen
+PASS key held across a scale up
+PASS a honeypot was reaped during the engagement
+PASS the bound honeypot survived
+PASS key held across a scale down
+PASS ap-hp-375a593b holds all 3 sessions
+PASS nothing landed elsewhere
