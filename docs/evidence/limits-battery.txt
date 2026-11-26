@@ -1,0 +1,12 @@
+# limits battery, 2026-11-26T18:37:12Z, from ap-hp-ae468de0
+
+## attempts from inside
+cpu limit                  contained 4 busy for 5 s used 0.22 cpu, throttled 167 periods, cpu.max 50000 100000
+memory limit               contained reached 208 MiB then killed, oom_kill +1, memory.max 268435456
+pids limit                 contained refused after 126 forks errno 11, pids.events max +1, pids.max 128
+
+## host side
+honeypot still answering:
+  yes
+load average:
+  2.38 2.63 1.19
