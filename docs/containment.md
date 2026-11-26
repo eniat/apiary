@@ -15,50 +15,34 @@ Raw transcript in `docs/evidence/containment-battery.txt`.
 
 The host sits on the lab segment because host-only networking puts it there, though it drops ICMP so ping gets no reply. Accepted in 0002, and the reason egress rules block the management interface explicitly rather than leaning on topology.
 
+## from inside a honeypot
 
-## egress from a honeypot
+Driven by `scripts/test-egress.sh`, `test-escape.sh` and `test-limits.sh`. Raw output in `docs/evidence/egress-battery.txt`, `escape-battery.txt` and `limits-battery.txt`.
 
-Driven by `scripts/test-egress.sh`, raw transcript of both cable states in `docs/evidence/egress-battery.txt`.
-
-| from | to | expected | result |
+| class | attempt | control | result |
 |---|---|---|---|
-| honeypot | own loopback 2222 | reach | reached, the probe's control |
-| honeypot | 8.8.8.8:53 | fail | timed out |
-| honeypot | 1.1.1.1:443 | fail | timed out |
-| honeypot | example.com:80 | fail | no resolution |
-| honeypot | 10.0.0.1:22 | fail | timed out |
-| honeypot | 172.16.0.1:22 | fail | timed out |
-| honeypot | 192.168.1.1:80 | fail | timed out |
-| honeypot | 172.30.0.1:22 bridge gateway | fail | timed out |
-| honeypot | 10.10.10.10:22 defender | fail | timed out |
-| honeypot | 10.10.10.1:445 host | fail | timed out |
-| honeypot | 10.10.10.20:22 attacker | fail | timed out |
-| honeypot | another honeypot 445 | fail | reached |
+| egress | 8.8.8.8:53, 1.1.1.1:443 | DOCKER-USER drop | timed out, no route with the cable out |
+| egress | example.com | no resolver path | no resolution in either cable state |
+| egress | 10.0.0.1, 172.16.0.1, 192.168.1.1 | DOCKER-USER drop | timed out |
+| egress | bridge gateway, defender, host, attacker | INPUT and DOCKER-USER drop | timed out |
+| egress | another honeypot on the bridge | none | reached |
+| escape | docker socket | never mounted | absent |
+| escape | capabilities | cap drop all | CapEff empty |
+| escape | write the rootfs | read only rootfs | read only filesystem |
+| escape | redirect map | no bpffs or CAP_BPF | not visible |
+| escape | raw socket | no CAP_NET_RAW, apparmor | permission denied |
+| escape | syscall outside the profile | seccomp | EPERM |
+| escape | mount proc | seccomp, no CAP_SYS_ADMIN | EPERM |
+| escape | docker api on the gateway | INPUT drop | timed out |
+| escape | kernel exploit | none | not attempted, the VM is the boundary |
+| exhaustion | four busy processes | cpu.max 0.5 | capped, 0.22 CPU used |
+| exhaustion | allocate until killed | memory.max 256 MiB, no swap | OOM killed at 208 MiB |
+| exhaustion | fork until refused | pids.max 128 | refused after 126 forks |
+| exhaustion | disk io | blkio weight 500 | not testable, a share not a cap |
 
-Destinations off the box traverse DOCKER-USER, the defender's own addresses traverse INPUT, and both DROP counters advanced on every run, so these are refusals by rule and not by routing. The internet rows are the evidence: with the NAT cable out they fail with no route, with it in they time out against the rule.
-
-Name resolution fails in both cable states, so docker's embedded resolver is not an egress path around the rules.
-
-The one success is honeypot to honeypot on the shared bridge, which 0002 records and explains.
-
-## escape attempts from inside a honeypot
-
-Driven by `scripts/test-escape.sh`, transcript in `docs/evidence/escape-battery.txt`. One row per vector in 0002.
-
-| vector | attempt | expected | result |
-|---|---|---|---|
-| docker socket | look for /var/run/docker.sock | absent | absent |
-| capabilities | read CapEff | empty | 0000000000000000 |
-| writable rootfs | write a world writable path on the rootfs | refused | read only filesystem |
-| redirect map | look for the pinned bpf map | not visible | not visible |
-| raw sockets | open AF_PACKET SOCK_RAW | refused | permission denied |
-| seccomp | call a syscall the profile omits | refused | EPERM |
-| mount | mount proc inside | refused | EPERM |
-| docker api | connect to the bridge gateway on 2375 | refused | timed out |
-| kernel exploit | not attempted | accepted | accepted, the VM is the boundary |
-
-Every probe runs through `docker exec`, which enters the same confinement but is not the path an attacker takes. Cowrie's emulated shell cannot execute a real binary, so this measures the container the honeypot runs in rather than what someone typing into the fake shell can reach.
-
-With capabilities, seccomp and apparmor layered, several refusals cannot be attributed to a single control. The raw socket is the clearest: it needs CAP_NET_RAW, which is absent, and the apparmor profile also omits raw sockets.
-
-The write probe targets a world writable path rather than a root owned one, so it exercises the read only mount and not file ownership. Pointed at a root owned file it returns EACCES and proves nothing about the mount.
+- Egress drops are by rule, both DROP counters advanced on every run
+- Honeypot to honeypot stays open because `br_netfilter` breaks the redirect, see 0002
+- Exhaustion rows read the cgroup's own counters, and the honeypot still answered afterwards
+- Every inside probe goes through `docker exec`, the same confinement but not the attacker's path, since cowrie's shell runs no real binary
+- Controls are layered, so some refusals have more than one cause
+- The write probe targets a world writable path, so it tests the mount and not file ownership
